@@ -54,13 +54,16 @@ namespace RSBot.Core
         public static string Language { get; set; }
 
         /// <summary>
+        /// Get environment fixed tick count
+        /// </summary>
+        public static int TickCount => (Environment.TickCount & int.MaxValue);
+
+        /// <summary>
         /// Initializes this instance.
         /// </summary>
         public static void Initialize()
         {
             Bot = new Bot();
-
-            //External Libraries
             BotbaseManager = new BotbaseManager();
             PluginManager = new PluginManager();
 
@@ -77,18 +80,19 @@ namespace RSBot.Core
         {
             while (!_updaterTokenSource.IsCancellationRequested)
             {
-                if (Game.Ready)
-                {
-                    Game.Player.Update();
-                    Game.Player.Vehicle?.Update();
-                    Game.Player.AbilityPet?.Update();
-                    Game.Player.AttackPet?.Update();
-
-                    SpawnManager.Update();
-                    EventManager.FireEvent("OnTick");
-                }
-
                 await Task.Delay(100);
+                if (!Game.Ready)
+                    continue;
+
+                Game.Player.Update();
+                Game.Player.Transport?.Update();
+                Game.Player.JobTransport?.Update();
+                Game.Player.AbilityPet?.Update();
+                Game.Player.Growth?.Update();
+                Game.Player.Fellow?.Update();
+
+                SpawnManager.Update();
+                EventManager.FireEvent("OnTick");
             }
         }
 

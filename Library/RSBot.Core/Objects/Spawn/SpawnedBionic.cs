@@ -1,4 +1,7 @@
-﻿using RSBot.Core.Network;
+﻿using RSBot.Core.Components;
+using RSBot.Core.Network;
+using System.Collections.Generic;
+using System.Linq;
 using System.Timers;
 
 namespace RSBot.Core.Objects.Spawn
@@ -46,13 +49,23 @@ namespace RSBot.Core.Objects.Spawn
         public BadEffect BadEffect { get; set; }
 
         /// <summary>
+        /// Gets or sets the target identifier.
+        /// </summary>
+        /// <value>
+        /// The target identifier.
+        /// </value>
+        public uint TargetId { get; set; }
+
+        /// <summary>
         /// <inheritdoc/>
         /// </summary>
         /// <param name="objId">The ref obj id</param>
         public SpawnedBionic(uint objId)
         {
             Id = objId;
-            Health = Record.MaxHealth;
+
+            if (Record != null)
+                Health = Record.MaxHealth;
         }
 
         /// <summary>
@@ -108,17 +121,16 @@ namespace RSBot.Core.Objects.Spawn
 
             var packet = new Packet(0x7045);
             packet.WriteUInt(UniqueId);
-            packet.Lock();
 
             var awaitCallback = new AwaitCallback(response =>
             {
                 var result = response.ReadByte() == 0x01;
-                if (!result)
-                    Log.Debug($"Could not select entity 0x{response.ReadByte():X}");
+                if (result)
+                    return response.ReadUInt() == UniqueId ? AwaitCallbackResult.Success : AwaitCallbackResult.ConditionFailed;
 
-                return result
-                    ? AwaitCallbackResult.Received : AwaitCallbackResult.Failed;
+                return AwaitCallbackResult.Fail;
             }, 0xB045);
+
             PacketManager.SendPacket(packet, PacketDestination.Server, awaitCallback);
             awaitCallback.AwaitResponse();
 
@@ -135,13 +147,23 @@ namespace RSBot.Core.Objects.Spawn
 
             var packet = new Packet(0x704B);
             packet.WriteUInt(UniqueId);
-            packet.Lock();
 
-            var awaitResult = new AwaitCallback(null, 0xB04B);
+            var awaitResult = new AwaitCallback(response => response.ReadByte() == 1 ?
+                AwaitCallbackResult.Success : AwaitCallbackResult.ConditionFailed, 0xB04B);
+
             PacketManager.SendPacket(packet, PacketDestination.Server, awaitResult);
             awaitResult.AwaitResponse();
 
             return awaitResult.IsCompleted;
+        }
+
+        /// <summary>
+        /// Gets a list of spawned bionics that are attacking this entity.
+        /// </summary>
+        /// <returns></returns>
+        public List<SpawnedBionic> GetAttackers()
+        {
+            return !SpawnManager.TryGetEntities<SpawnedBionic>(out var attackers, e => e.TargetId == UniqueId) ? null : attackers.ToList();
         }
     }
 }

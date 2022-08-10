@@ -49,10 +49,10 @@ namespace RSBot.Party.Bundle.AutoParty
                 ItemAutoShare = PlayerConfig.Get<bool>("RSBot.Party.ItemAutoShare"),
                 AllowInvitations = PlayerConfig.Get<bool>("RSBot.Party.AllowInvitations"),
                 AcceptIfBotIsStopped = PlayerConfig.Get<bool>("RSBot.Party.AcceptIfBotStopped"),
+                LeaveIfMasterNot = PlayerConfig.Get<bool>("RSBot.Party.LeaveIfMasterNot"),
+                LeaveIfMasterNotName = PlayerConfig.Get<string>("RSBot.Party.LeaveIfMasterNotName"),
                 CenterPosition = new Position
                 {
-                    XSector = PlayerConfig.Get<byte>("RSBot.Area.XSec"),
-                    YSector = PlayerConfig.Get<byte>("RSBot.Area.YSec"),
                     XCoordinate = PlayerConfig.Get<float>("RSBot.Area.X"),
                     YCoordinate = PlayerConfig.Get<float>("RSBot.Area.Y")
                 }
@@ -64,14 +64,11 @@ namespace RSBot.Party.Bundle.AutoParty
 
         public void OnTick()
         {
-            if (!Kernel.Bot.Running)
-                return;
-
-            var elapsed = Environment.TickCount - _lastTick;
-            if (elapsed > 1000)
+            var elapsed = Kernel.TickCount - _lastTick;
+            if (elapsed > 5000)
             {
                 CheckForPlayers();
-                _lastTick = Environment.TickCount;
+                _lastTick = Kernel.TickCount;
             }
         }
 
@@ -80,7 +77,23 @@ namespace RSBot.Party.Bundle.AutoParty
         /// </summary>
         public void CheckForPlayers()
         {
+            if (Game.Party.IsInParty && 
+                !Game.Party.IsLeader &&
+                Config.LeaveIfMasterNot && 
+                !string.IsNullOrWhiteSpace(Config.LeaveIfMasterNotName))
+            {
+                if (Config.LeaveIfMasterNotName != Game.Party.Leader.Name)
+                    Game.Party.Leave();
+            }
+
             if (!Game.Party.CanInvite) 
+                return;
+
+            var limit = 8;
+            if (!Game.Party.Settings.ExperienceAutoShare && !Game.Party.Settings.ItemAutoShare)
+                limit = 4;
+
+            if (Game.Party.Members?.Count > limit)
                 return;
 
             if (Config.OnlyAtTrainingPlace &&
@@ -95,7 +108,13 @@ namespace RSBot.Party.Bundle.AutoParty
                 if (Game.Party.IsInParty && Game.Party.GetMemberByName(player.Name) != null) 
                     continue;
 
-                if (Config.InviteAll || Config.PlayerList.Contains(player.Name) && Config.InviteFromList)
+                if(Config.InviteAll)
+                {
+                    Game.Party.Invite(player.UniqueId); 
+                    continue;
+                }
+
+                if (Config.PlayerList.Contains(player.Name) && Config.InviteFromList)
                     Game.Party.Invite(player.UniqueId);
             }
         }

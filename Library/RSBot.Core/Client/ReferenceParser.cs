@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 
 namespace RSBot.Core.Client
 {
@@ -18,7 +19,7 @@ namespace RSBot.Core.Client
             return _data.Length;
         }
 
-        public bool TryParseEnum<TEnum>(int index, out TEnum result)
+        public bool TryParse<TEnum>(int index, out TEnum result)
             where TEnum : struct
         {
             if (index < _length && Enum.TryParse(_data[index], out result))
@@ -28,7 +29,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseString(int index, out string result)
+        public bool TryParse(int index, out string result)
         {
             if (index < _length)
             {
@@ -40,7 +41,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseString(int index, out string result, string @default)
+        public bool TryParse(int index, out string result, string @default)
         {
             if (index < _length)
             {
@@ -52,7 +53,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseBool(int index, out bool result)
+        public bool TryParse(int index, out bool result)
         {
             result = false;
 
@@ -68,9 +69,9 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseBool(int index, out bool result, bool @default)
+        public bool TryParse(int index, out bool result, bool @default)
         {
-            if (TryParseBool(index, out result))
+            if (TryParse(index, out result))
                 return true;
 
             result = @default;
@@ -78,25 +79,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseSByte(int index, out sbyte result)
-        {
-            if (index < _length && sbyte.TryParse(_data[index], out result))
-                return true;
-
-            result = default(sbyte);
-            return false;
-        }
-
-        public bool TryParseSByte(int index, out sbyte result, sbyte @default)
-        {
-            if (index < _length && sbyte.TryParse(_data[index], out result))
-                return true;
-
-            result = @default;
-            return false;
-        }
-
-        public bool TryParseByte(int index, out byte result)
+        public bool TryParse(int index, out byte result)
         {
             if (index < _length && byte.TryParse(_data[index], out result))
                 return true;
@@ -105,7 +88,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseByte(int index, out byte result, byte @default)
+        public bool TryParse(int index, out byte result, byte @default)
         {
             if (index < _length && byte.TryParse(_data[index], out result))
                 return true;
@@ -114,7 +97,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseShort(int index, out short result)
+        public bool TryParse(int index, out short result)
         {
             if (index < _length && short.TryParse(_data[index], out result))
                 return true;
@@ -123,7 +106,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseShort(int index, out short result, short @default)
+        public bool TryParse(int index, out short result, short @default)
         {
             if (index < _length && short.TryParse(_data[index], out result))
                 return true;
@@ -132,7 +115,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseUShort(int index, out ushort result)
+        public bool TryParse(int index, out ushort result)
         {
             if (index < _length && ushort.TryParse(_data[index], out result))
                 return true;
@@ -141,7 +124,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseUShort(int index, out ushort result, ushort @default)
+        public bool TryParse(int index, out ushort result, ushort @default)
         {
             if (index < _length && ushort.TryParse(_data[index], out result))
                 return true;
@@ -150,7 +133,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseInt(int index, out int result)
+        public bool TryParse(int index, out int result)
         {
             if (index < _length && int.TryParse(_data[index], out result))
                 return true;
@@ -159,7 +142,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseInt(int index, out int result, int @default)
+        public bool TryParse(int index, out int result, int @default)
         {
             if (index < _length && int.TryParse(_data[index], out result))
                 return true;
@@ -168,7 +151,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseUInt(int index, out uint result)
+        public bool TryParse(int index, out uint result)
         {
             if (index < _length && uint.TryParse(_data[index], out result))
                 return true;
@@ -177,7 +160,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseUInt(int index, out uint result, uint @default)
+        public bool TryParse(int index, out uint result, uint @default)
         {
             if (index < _length && uint.TryParse(_data[index], out result))
                 return true;
@@ -186,7 +169,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseLong(int index, out long result)
+        public bool TryParse(int index, out long result)
         {
             if (index < _length && long.TryParse(_data[index], out result))
                 return true;
@@ -195,7 +178,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseLong(int index, out long result, long @default)
+        public bool TryParse(int index, out long result, long @default)
         {
             if (index < _length && long.TryParse(_data[index], out result))
                 return true;
@@ -204,7 +187,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseULong(int index, out ulong result)
+        public bool TryParse(int index, out ulong result)
         {
             if (index < _length && ulong.TryParse(_data[index], out result))
                 return true;
@@ -213,7 +196,7 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseULong(int index, out ulong result, ulong @default)
+        public bool TryParse(int index, out ulong result, ulong @default)
         {
             if (index < _length && ulong.TryParse(_data[index], out result))
                 return true;
@@ -222,16 +205,16 @@ namespace RSBot.Core.Client
             return false;
         }
 
-        public bool TryParseFloat(int index, out float result)
+        public bool TryParse(int index, out float result)
         {
-            if (index < _length && float.TryParse(_data[index], out result))
+            if (index < _length  && float.TryParse(_data[index], NumberStyles.Any, CultureInfo.InvariantCulture, out result))
                 return true;
 
             result = default(float);
             return false;
         }
 
-        public bool TryParseFloat(int index, out float result, float @default)
+        public bool TryParse(int index, out float result, float @default)
         {
             if (index < _length && float.TryParse(_data[index], out result))
                 return true;

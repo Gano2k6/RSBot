@@ -1,11 +1,12 @@
-﻿using RSBot.Core;
+﻿using System;
+using RSBot.Core;
 using RSBot.Core.Event;
-using RSBot.Theme;
-using System;
 using System.Windows.Forms;
+using System.ComponentModel;
 
 namespace RSBot.Views.Controls
 {
+    [ToolboxItem(false)]
     public partial class Character : UserControl
     {
         /// <summary>
@@ -25,16 +26,21 @@ namespace RSBot.Views.Controls
         {
             EventManager.SubscribeEvent("OnLoadCharacter", OnLoadCharacter);
             EventManager.SubscribeEvent("OnLoadCharacterStats", OnLoadCharacterStats);
-            EventManager.SubscribeEvent("OnLevelUp", OnLevelUp);
+            EventManager.SubscribeEvent("OnLevelUp", new Action<byte>(OnLevelUp));
             EventManager.SubscribeEvent("OnExpSpUpdate", OnExpUpdate);
             EventManager.SubscribeEvent("OnUpdateHPMP", OnLoadCharacterStats);
             EventManager.SubscribeEvent("OnUpdateGold", OnUpdateGold);
             EventManager.SubscribeEvent("OnUpdateSP", OnUpdateSP);
             EventManager.SubscribeEvent("OnAgentServerDisconnected", OnAgentServerDisconnected);
-            EventManager.SubscribeEvent("OnMainFormLoaded", OnMainFormLoaded);
+            EventManager.SubscribeEvent("OnInitialized", OnInitialized);
         }
 
-        private void OnMainFormLoaded()
+        private void OnLevelUp(byte oldLevel)
+        {
+            lblLevel.Text = Game.Player.Level.ToString();
+        }
+
+        private void OnInitialized()
         {
             lblPlayerName.Text = LanguageManager.GetLang("LabelPlayerName");
         }
@@ -65,18 +71,8 @@ namespace RSBot.Views.Controls
 
             progressHP.Maximum = Game.Player.MaximumHealth;
             progressMP.Maximum = Game.Player.MaximumMana;
-            
-            if(Game.Player.Health > Game.Player.MaximumHealth)
-                progressHP.Maximum = Game.Player.Health;
-
-            if (Game.Player.Mana > Game.Player.MaximumMana)
-                progressMP.Maximum = Game.Player.Mana;
-
             progressHP.Value = Game.Player.Health;
             progressMP.Value = Game.Player.Mana;
-
-            progressHP.Text = Game.Player.Health + @"/" + Game.Player.MaximumHealth;
-            progressMP.Text = Game.Player.Mana + @"/" + Game.Player.MaximumMana;
         }
 
         /// <summary>
@@ -85,18 +81,8 @@ namespace RSBot.Views.Controls
         /// <exception cref="System.NotImplementedException"></exception>
         private void OnExpUpdate()
         {
-            var percentageExp = (Game.Player.Experience * 100.0) / Game.ReferenceManager.GetRefLevel(Game.Player.Level).Exp_C;
-
-            progressEXP.Value = Convert.ToInt32(percentageExp);
-            progressEXP.Text = Math.Round(percentageExp, 2) + @"%";
-        }
-
-        /// <summary>
-        /// s the on level up.
-        /// </summary>
-        private void OnLevelUp()
-        {
-            lblLevel.Text = Game.Player.Level.ToString();
+            progressEXP.Value = Game.Player.Experience;
+            progressEXP.Maximum = Game.ReferenceManager.GetRefLevel(Game.Player.Level).Exp_C;
         }
 
         /// <summary>
@@ -105,8 +91,8 @@ namespace RSBot.Views.Controls
         private void OnLoadCharacter()
         {
             lblPlayerName.Text = Game.Player.Name;
-            lblLevel.Text = Game.Player.Level.ToString();
 
+            OnLevelUp(Game.Player.Level);
             OnLoadCharacterStats();
             OnExpUpdate();
             OnUpdateSP();
@@ -125,18 +111,11 @@ namespace RSBot.Views.Controls
             lblGold.Text = "0";
             lblSP.Text = "0";
             progressHP.Value = 0;
-            progressHP.Text = "0 / 0";
             progressMP.Value = 0;
-            progressMP.Text = "0 / 0";
             progressEXP.Value = 0;
-            progressEXP.Text = "%0";
-        }
-
-        private void Character_BackColorChanged(object sender, EventArgs e)
-        {
-            progressHP.BackColor = ColorScheme.BackColor;
-            progressMP.BackColor = ColorScheme.BackColor;
-            progressEXP.BackColor = ColorScheme.BackColor;
+            progressHP.Maximum = 0;
+            progressMP.Maximum = 0;
+            progressEXP.Maximum = 0;
         }
     }
 }

@@ -37,27 +37,25 @@ namespace RSBot.Core.Network.Handler.Agent.Action
             for (var i = 0; i < buffTokensCount; i++)
             {
                 var token = packet.ReadUInt();
-                if (token == 0) // debuffs
+                if (token == 0)
                     continue;
 
-                var buff = Core.Game.Player.State.GetActiveBuff(token);
-                if (buff != null)
+                if (Game.Player.State.TryRemoveActiveBuff(token, out var buff))
                 {
-                    Log.Debug($"The buff [{buff.Record?.GetRealName()}] expired");
+                    Log.Notify($"The buff [{buff.Record?.GetRealName()}] expired");
 
-                    Core.Game.Player.Buffs.Remove(buff);
                     EventManager.FireEvent("OnRemoveBuff", buff);
 
-                    var playerSkill = Core.Game.Player.Skills.GetSkillInfoById(buff.Id);
+                    var playerSkill = Game.Player.Skills.GetSkillInfoById(buff.Id);
                     playerSkill?.Reset();
 
                     return;
                 }
 
-                if (!SpawnManager.TryGetEntity<SpawnedBionic>(p => p.State.HasActiveBuff(token, out _), out var bionic))
+                if (!SpawnManager.TryGetEntity<SpawnedBionic>(p => p.State.TryGetActiveBuff(token, out _), out var bionic))
                     return;
 
-                bionic.State.TryRemoveActiveBuff(token, out var removedBuff);
+                bionic.State.TryRemoveActiveBuff(token, out _);
             }
         }
     }

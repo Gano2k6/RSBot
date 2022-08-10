@@ -17,77 +17,80 @@ namespace RSBot.Core.Client
     {
         public int LanguageTab { get; set; }
 
-        public Dictionary<string, RefText> TextData { get; set; }
-        public Dictionary<uint, RefObjChar> CharacterData { get; set; }
-        public Dictionary<uint, RefObjItem> ItemData { get; set; }
-        public Dictionary<byte, RefLevel> LevelData { get; set; }
-        public Dictionary<uint, RefQuest> QuestData { get; set; }
-        public Dictionary<uint, RefSkill> SkillData { get; set; }
-        public Dictionary<uint, RefSkillMastery> SkillMasteryData { get; set; }
-        public Dictionary<string, RefShop> Shops { get; set; }
-        public Dictionary<string, RefShopTab> ShopTabs { get; set; }
-        public Dictionary<string, RefShopGroup> ShopGroups { get; set; }
-        public List<RefMappingShopGroup> ShopGroupMapping { get; set; }
-        public List<RefMappingShopWithTab> ShopTabMapping { get; set; }
-        public List<RefShopGood> ShopGoods { get; set; }
-        public Dictionary<string, RefPackageItemScrap> PackageItemScrap { get; set; }
-        public List<RefTeleport> TeleportData { get; set; }
-        public List<RefTeleportLink> TeleportLinks { get; set; }
-        public GatewayInfo GatewayInfo { get; set; }
-        public DivisionInfo DivisionInfo { get; set; }
-        public VersionInfo VersionInfo { get; set; }
+        public Dictionary<string, RefText> TextData { get; } = new(50000);
+        public Dictionary<uint, RefObjChar> CharacterData { get; } = new(20000);
+        public Dictionary<uint, RefObjItem> ItemData { get; } = new(20000);
+        public Dictionary<byte, RefLevel> LevelData { get; } = new(128);
+        public Dictionary<uint, RefQuest> QuestData { get; } = new(1024);
+        public Dictionary<uint, RefSkill> SkillData { get; } = new(35000);
+        public Dictionary<uint, RefSkillMastery> SkillMasteryData { get; } = new(32);
+        public Dictionary<int, RefAbilityByItemOptLevel> AbilityItemByOptLevel { get; } = new(256);
+        public List<RefSkillByItemOptLevel> SkillByItemOptLevels { get; } = new(256);
+        public List<RefExtraAbilityByEquipItemOptLevel> ExtraAbilityByEquipItemOptLevel { get; } = new(4096);
+        public Dictionary<string, RefShop> Shops { get; } = new(128);
+        public Dictionary<string, RefShopTab> ShopTabs { get; } = new(256);
+        public Dictionary<string, RefShopGroup> ShopGroups { get; } = new(128);
+        public List<RefMappingShopGroup> ShopGroupMapping { get; } = new(128);
+        public List<RefMappingShopWithTab> ShopTabMapping { get; } = new(128);
+        public List<RefShopGood> ShopGoods { get; } = new(4096);
+        public Dictionary<string, RefPackageItemScrap> PackageItemScrap { get; } = new(2048);
+        public List<RefTeleport> TeleportData { get; } = new(256);
+        public List<RefTeleportLink> TeleportLinks { get; } = new(256);
+        public Dictionary<int, RefOptionalTeleport> OptionalTeleports { get; } = new(32);
+        public GatewayInfo GatewayInfo { get; private set; }
+        public DivisionInfo DivisionInfo { get; private set; }
+        public VersionInfo VersionInfo { get; private set; }
+
+        /// <summary>
+        /// Gets the list of magic options
+        /// </summary>
+        public List<RefMagicOpt> MagicOptions { get; } = new(1024);
+
+        /// <summary>
+        /// Gets the list of all magic option assignments
+        /// </summary>
+        public List<RefMagicOptAssign> MagicOptionAssignments { get; } = new(128);
 
         public void Load(int languageTab)
         {
-            this.LanguageTab = languageTab; //until language wizard is reworked?
+            LanguageTab = languageTab; //until language wizard is reworked?
 
             DivisionInfo = DivisionInfo.Load();
             GatewayInfo = GatewayInfo.Load();
             VersionInfo = VersionInfo.Load();
 
-            this.TextData = new Dictionary<string, RefText>(50000);
-
-            //this.ObjectData = new Dictionary<uint, RefObjCommon>(50000);
-            this.CharacterData = new Dictionary<uint, RefObjChar>(20000);
-            this.ItemData = new Dictionary<uint, RefObjItem>(20000);
-
-            this.LevelData = new Dictionary<byte, RefLevel>(128);
-            this.QuestData = new Dictionary<uint, RefQuest>(1024);
-
-            this.SkillData = new Dictionary<uint, RefSkill>(35000);
-            this.SkillMasteryData = new Dictionary<uint, RefSkillMastery>(32);
-
-            this.TeleportData = new List<RefTeleport>(256);
-            this.TeleportLinks = new List<RefTeleportLink>(256);
-
-            this.Shops = new Dictionary<string, RefShop>(128);
-            this.ShopTabs = new Dictionary<string, RefShopTab>(256);
-            this.ShopGroups = new Dictionary<string, RefShopGroup>(128);
-            this.ShopGoods = new List<RefShopGood>(4096);
-            this.ShopGroupMapping = new List<RefMappingShopGroup>(128);
-            this.ShopTabMapping = new List<RefMappingShopWithTab>(128);
-            this.PackageItemScrap = new Dictionary<string, RefPackageItemScrap>(2048);
-
             Parallel.Invoke
             (
                 () => LoadTextData(),
-                () => LoadReferenceListFile("CharacterData.txt", this.CharacterData),
-                () => LoadReferenceFile("TeleportBuilding.txt", this.CharacterData),
-                () => LoadReferenceListFile("ItemData.txt", this.ItemData),
+                () => LoadConditionalData("CharacterData.txt", CharacterData),
+                () => LoadConditionalData("ItemData.txt", ItemData),
                 () => LoadSkillData(),
-                () => LoadReferenceFile("SkillMasteryData.txt", this.SkillMasteryData),
-                () => LoadReferenceFile("LevelData.txt", this.LevelData),
-                () => LoadReferenceFile("QuestData.txt", this.QuestData),
-                () => LoadReferenceFile("TeleportData.txt", this.TeleportData),
-                () => LoadReferenceFile("TeleportLink.txt", this.TeleportLinks),
-                () => LoadReferenceFile("RefShop.txt", this.Shops),
-                () => LoadReferenceFile("RefShopTab.txt", this.ShopTabs),
+                () => LoadReferenceFile("TeleportBuilding.txt", CharacterData),
+                () => LoadReferenceFile("SkillMasteryData.txt", SkillMasteryData),
+                () => LoadReferenceFile("LevelData.txt", LevelData),
+                () => LoadReferenceFile("QuestData.txt", QuestData),
+                () => LoadReferenceFile("TeleportData.txt", TeleportData),
+                () => LoadReferenceFile("TeleportLink.txt", TeleportLinks),
+                () => LoadReferenceFile("RefShop.txt", Shops),
+                () => LoadReferenceFile("RefShopTab.txt", ShopTabs),
                 () => LoadRefShopGoods("RefShopGoods.txt"),
-                () => LoadReferenceFile("RefShopGroup.txt", this.ShopGroups),
-                () => LoadReferenceFile("RefMappingShopGroup.txt", this.ShopGroupMapping),
-                () => LoadReferenceFile("RefMappingShopWithTab.txt", this.ShopTabMapping),
-                () => LoadScrapOfPackageItemData("RefScrapOfPackageItem.txt")
+                () => LoadReferenceFile("RefShopGroup.txt", ShopGroups),
+                () => LoadReferenceFile("RefMappingShopGroup.txt", ShopGroupMapping),
+                () => LoadReferenceFile("RefMappingShopWithTab.txt", ShopTabMapping),
+                () => LoadScrapOfPackageItemData("RefScrapOfPackageItem.txt"),
+                () => LoadReferenceFile("magicoption.txt", MagicOptions),
+                () => LoadReferenceFile("magicoptionassign.txt", MagicOptionAssignments),
+                () => LoadReferenceFile("refoptionalteleport.txt", OptionalTeleports)
             );
+
+            if(Game.ClientType > GameClientType.Japanese_Old)
+            {
+                LoadReferenceFile("refabilitybyitemoptleveldata.txt", AbilityItemByOptLevel);
+                LoadReferenceFile("refskillbyitemoptleveldata.txt", SkillByItemOptLevels);
+            }
+
+            if (Game.ClientType >= GameClientType.Chinese)
+                LoadReferenceFile("refextraabilitybyequipitemoptlevel.txt", ExtraAbilityByEquipItemOptLevel);
 
             GC.Collect();
             EventManager.FireEvent("OnLoadGameData");
@@ -96,60 +99,78 @@ namespace RSBot.Core.Client
         private void LoadTextData()
         {
             if (Game.ClientType >= GameClientType.Global)
-                this.LoadReferenceListFile("TextUISystem.txt", this.TextData);
+                LoadReferenceListFile("TextUISystem.txt", TextData);
             else
-                this.LoadReferenceFile("TextUISystem.txt", this.TextData);
+                LoadReferenceFile("TextUISystem.txt", TextData);
 
             if (Game.ClientType >= GameClientType.Global)
-                this.LoadReferenceListFile("TextZoneName.txt", this.TextData);
+                LoadReferenceListFile("TextZoneName.txt", TextData);
             else
-                this.LoadReferenceFile("TextZoneName.txt", this.TextData);
+                LoadReferenceFile("TextZoneName.txt", TextData);
 
             if (Game.ClientType >= GameClientType.Global)
             {
-                this.LoadReferenceListFile("TextQuest_OtherString.txt", this.TextData);
-                this.LoadReferenceListFile("TextData_Object.txt", this.TextData);
-                this.LoadReferenceListFile("TextData_Equip&Skill.txt", this.TextData);
-                this.LoadReferenceListFile("TextQuest_Speech&Name.txt", this.TextData);
-                this.LoadReferenceListFile("TextQuest_QuestString.txt", this.TextData);
+                LoadReferenceListFile("TextQuest_OtherString.txt", TextData);
+                LoadReferenceListFile("TextData_Object.txt", TextData);
+                LoadReferenceListFile("TextData_Equip&Skill.txt", TextData);
+                LoadReferenceListFile("TextQuest_Speech&Name.txt", TextData);
+                LoadReferenceListFile("TextQuest_QuestString.txt", TextData);
             }
             else
             {
-                this.LoadReferenceListFile("TextDataName.txt", this.TextData);
-                this.LoadReferenceListFile("TextQuest.txt", this.TextData);
+                if (Game.ClientType >= GameClientType.Thailand)
+                {
+                    LoadReferenceListFile("TextDataName.txt", TextData);
+                    LoadReferenceListFile("TextQuest.txt", TextData);
+                    return;
+                }
+
+                LoadReferenceFile("TextDataName.txt", TextData);
+                LoadReferenceFile("TextQuest.txt", TextData);
             }
         }
 
         private void LoadRefShopGoods(string file)
         {
             if (Game.ClientType > GameClientType.Chinese)
-                LoadReferenceListFile(file, this.ShopGoods);
+                LoadReferenceListFile(file, ShopGoods);
             else
-                LoadReferenceFile(file, this.ShopGoods);
+                LoadReferenceFile(file, ShopGoods);
         }
 
         private void LoadScrapOfPackageItemData(string file)
         {
             if (Game.ClientType > GameClientType.Chinese)
-                LoadReferenceListFile(file, this.PackageItemScrap);
+                LoadReferenceListFile(file, PackageItemScrap);
             else
-                LoadReferenceFile(file, this.PackageItemScrap);
+                LoadReferenceFile(file, PackageItemScrap);
+        }
+
+        private void LoadConditionalData<TKey, TReference>(string file, IDictionary<TKey, TReference> collection)
+            where TReference : IReference<TKey>, new()
+        {
+            if (Game.ClientType < GameClientType.Thailand)
+                LoadReferenceFile(file, collection);
+            else
+                LoadReferenceListFile(file, collection);
         }
 
         private void LoadSkillData()
         {
             if (Game.ClientType == GameClientType.Vietnam ||
                 Game.ClientType == GameClientType.Vietnam274)
-                this.LoadReferenceListFileEnc("SkillDataEnc.txt", this.SkillData);
+                LoadReferenceListFileEnc("SkillDataEnc.txt", SkillData);
+            else if (Game.ClientType < GameClientType.Thailand)
+                LoadReferenceFile("SkillData.txt", SkillData);
             else
-                this.LoadReferenceListFile("SkillData.txt", this.SkillData);
+                LoadReferenceListFile("SkillData.txt", SkillData);
         }
 
         private void LoadReferenceListFileEnc<TKey, TReference>(string fileName, IDictionary<TKey, TReference> destination)
     where TReference : IReference<TKey>, new()
         {
             using (var stream = Game.MediaPk2.GetFile(fileName).GetStream())
-                this.LoadReferenceListFileEnc(stream, destination);
+                LoadReferenceListFileEnc(stream, destination);
         }
 
         private void LoadReferenceListFileEnc<TKey, TReference>(Stream stream, IDictionary<TKey, TReference> destination)
@@ -165,7 +186,7 @@ namespace RSBot.Core.Client
                     if (string.IsNullOrEmpty(line) || line.StartsWith("//"))
                         continue;
 
-                    this.LoadReferenceFileEnc(line, destination);
+                    LoadReferenceFileEnc(line, destination);
                 }
             }
         }
@@ -174,7 +195,7 @@ namespace RSBot.Core.Client
             where TReference : IReference<TKey>, new()
         {
             using (var stream = Game.MediaPk2.GetFile(fileName).GetStream())
-                this.LoadReferenceFileEnc(stream, destination);
+                LoadReferenceFileEnc(stream, destination);
         }
 
         private void LoadReferenceFileEnc<TKey, TReference>(Stream stream, IDictionary<TKey, TReference> destination)
@@ -185,7 +206,7 @@ namespace RSBot.Core.Client
                 SkillCryptoHelper.DecryptStream(stream, decryptedStream, 0x8C1F);
                 decryptedStream.Seek(0, SeekOrigin.Begin);
 
-                this.LoadReferenceFile(decryptedStream, destination);
+                LoadReferenceFile(decryptedStream, destination);
             }
         }
 
@@ -200,21 +221,21 @@ namespace RSBot.Core.Client
             where TReference : IReference<TKey>, new()
         {
             using (var stream = Game.MediaPk2.GetFile(fileName).GetStream())
-                this.LoadReferenceListFile(stream, destination);
+                LoadReferenceListFile(stream, destination);
         }
 
         private void LoadReferenceFile<TReference>(string fileName, IList<TReference> destination)
             where TReference : IReference, new()
         {
             using (var stream = Game.MediaPk2.GetFile(fileName).GetStream())
-                this.LoadReferenceFile(stream, destination);
+                LoadReferenceFile(stream, destination);
         }
 
         private void LoadReferenceFile<TKey, TReference>(string fileName, IDictionary<TKey, TReference> destination)
             where TReference : IReference<TKey>, new()
         {
             using (var stream = Game.MediaPk2.GetFile(fileName).GetStream())
-                this.LoadReferenceFile(stream, destination);
+                LoadReferenceFile(stream, destination);
         }
 
         private void LoadReferenceListFile<TReference>(Stream stream, IList<TReference> destination) where TReference : IReference, new()
@@ -229,7 +250,7 @@ namespace RSBot.Core.Client
                     if (string.IsNullOrEmpty(line) || line.StartsWith("//"))
                         continue;
 
-                    this.LoadReferenceFile(line, destination);
+                    LoadReferenceFile(line, destination);
                 }
             }
         }
@@ -247,7 +268,7 @@ namespace RSBot.Core.Client
                     if (string.IsNullOrEmpty(line) || line.StartsWith("//"))
                         continue;
 
-                    this.LoadReferenceFile(line, destination);
+                    LoadReferenceFile(line, destination);
                 }
             }
         }
@@ -313,12 +334,12 @@ namespace RSBot.Core.Client
         /// <returns></returns>
         public RefShopTab GetTab(string codeName)
         {
-            return this.ShopTabs[codeName];
+            return ShopTabs[codeName];
         }
 
         public string GetTranslation(string name)
         {
-            if (this.TextData.TryGetValue(name, out RefText refText))
+            if (TextData.TryGetValue(name, out RefText refText))
                 return refText.Data;
 
             return name;
@@ -326,10 +347,10 @@ namespace RSBot.Core.Client
 
         public RefObjCommon GetRefObjCommon(uint refObjID)
         {
-            if (this.CharacterData.TryGetValue(refObjID, out RefObjChar refChar))
+            if (CharacterData.TryGetValue(refObjID, out RefObjChar refChar))
                 return refChar;
 
-            if (this.ItemData.TryGetValue(refObjID, out RefObjItem refItem))
+            if (ItemData.TryGetValue(refObjID, out RefObjItem refItem))
                 return refItem;
 
             return null;
@@ -337,7 +358,7 @@ namespace RSBot.Core.Client
 
         public RefObjChar GetRefObjChar(uint id)
         {
-            if (this.CharacterData.TryGetValue(id, out RefObjChar data))
+            if (CharacterData.TryGetValue(id, out RefObjChar data))
                 return data;
 
             return null;
@@ -345,12 +366,12 @@ namespace RSBot.Core.Client
 
         public RefObjChar GetRefObjChar(string codeName)
         {
-            return this.CharacterData.FirstOrDefault(obj => obj.Value.CodeName == codeName).Value;
+            return CharacterData.FirstOrDefault(obj => obj.Value.CodeName == codeName).Value;
         }
 
         public RefObjItem GetRefItem(uint id)
         {
-            if (this.ItemData.TryGetValue(id, out RefObjItem data))
+            if (ItemData.TryGetValue(id, out RefObjItem data))
                 return data;
 
             return null;
@@ -358,16 +379,17 @@ namespace RSBot.Core.Client
 
         public RefObjItem GetRefItem(string codeName)
         {
-            return this.ItemData.FirstOrDefault(obj => obj.Value.CodeName == codeName).Value;
+            return ItemData.FirstOrDefault(obj => obj.Value.CodeName == codeName).Value;
         }
+
         public RefObjItem GetRefItem(TypeIdFilter filter)
         {
-            return this.ItemData.FirstOrDefault(obj => filter.EqualsRefItem(obj.Value)).Value;
+            return ItemData.FirstOrDefault(obj => filter.EqualsRefItem(obj.Value)).Value;
         }
 
         public RefSkill GetRefSkill(uint id)
         {
-            if (this.SkillData.TryGetValue(id, out RefSkill data))
+            if (SkillData.TryGetValue(id, out RefSkill data))
                 return data;
 
             return null;
@@ -379,7 +401,7 @@ namespace RSBot.Core.Client
                 id >= 273 && id <= 275)
                 id = 277; // csro shit
 
-            if (this.SkillMasteryData.TryGetValue(id, out RefSkillMastery data))
+            if (SkillMasteryData.TryGetValue(id, out RefSkillMastery data))
                 return data;
 
             return null;
@@ -387,7 +409,7 @@ namespace RSBot.Core.Client
 
         public RefQuest GetRefQuest(uint id)
         {
-            if (this.QuestData.TryGetValue(id, out RefQuest data))
+            if (QuestData.TryGetValue(id, out RefQuest data))
                 return data;
 
             return null;
@@ -395,7 +417,7 @@ namespace RSBot.Core.Client
 
         public RefLevel GetRefLevel(byte level)
         {
-            if (this.LevelData.TryGetValue(level, out RefLevel data))
+            if (LevelData.TryGetValue(level, out RefLevel data))
                 return data;
 
             return null;
@@ -416,7 +438,7 @@ namespace RSBot.Core.Client
             var shops = GetRefShopGroup(npcCodeName).GetShops();
             var tabs = shops[0].GetTabs();
             var goods = tabs[tab].GetGoods();
-            return PackageItemScrap[goods.FirstOrDefault(s => s.SlotIndex == slot).RefPackageItemCodeName];
+            return PackageItemScrap[goods.FirstOrDefault(s => s.SlotIndex == slot)?.RefPackageItemCodeName];
         }
 
         public RefPackageItemScrap GetRefPackageItemById(ushort id, byte group, byte tab, byte slot)
@@ -426,7 +448,7 @@ namespace RSBot.Core.Client
 
         public RefPackageItemScrap GetRefPackageItem(string codeName)
         {
-            if (this.PackageItemScrap.TryGetValue(codeName, out RefPackageItemScrap data))
+            if (PackageItemScrap.TryGetValue(codeName, out RefPackageItemScrap data))
                 return data;
 
             return null;
@@ -572,6 +594,70 @@ namespace RSBot.Core.Client
         public RefTeleport[] GetGroundTeleporters(ushort regionId)
         {
             return TeleportData.Where(t => t.GenRegionID == regionId && t.AssocRefObjId == 0).ToArray();
+        }
+
+        /// <summary>
+        /// Gets a magic option by its id
+        /// </summary>
+        /// <param name="id">The id of the magic option</param>
+        /// <returns></returns>
+        public RefMagicOpt GetMagicOption(uint id)
+        {
+            return MagicOptions?.FirstOrDefault(m => m.Id == id);
+        }
+
+        /// <summary>
+        /// Gets the first magic option of the specified group
+        /// </summary>
+        /// <param name="group">The group</param>
+        /// <returns></returns>
+        public RefMagicOpt GetMagicOption(string group)
+        {
+            return MagicOptions?.FirstOrDefault(m => m.Group == group);
+        }
+
+        /// <summary>
+        /// Gets a magic option by its group and degree
+        /// </summary>
+        /// <param name="group">The group</param>
+        /// <param name="degree">The degree</param>
+        /// <returns></returns>
+        public RefMagicOpt GetMagicOption(string group, byte degree)
+        {
+            return MagicOptions?.FirstOrDefault(m => m.Group == group && m.Level == degree);
+        }
+
+        /// <summary>
+        /// Gets a list of magic options for the specified type ids
+        /// </summary>
+        /// <param name="typeId3">The TID3</param>
+        /// <param name="typeId4">The TID4</param>
+        /// <returns></returns>
+        public List<RefMagicOpt> GetAssignments(byte typeId3, byte typeId4)
+        {
+            return MagicOptionAssignments.FirstOrDefault(a => a.TypeId3 == typeId3 && a.TypeId4 == typeId4)?.AvailableMagicOptions.Select(GetMagicOption).ToList();
+        }
+
+        /// <summary>
+        /// Gets a ability item for the specified <paramref name="itemId"/> and <paramref name="optLevel"/>
+        /// </summary>
+        /// <param name="itemId">Item Id</param>
+        /// <param name="optLevel">Opt Level</param>
+        /// <returns></returns>
+        public RefAbilityByItemOptLevel GetAbilityItem(uint itemId, byte optLevel)
+        {
+            return AbilityItemByOptLevel.Values.FirstOrDefault(p => p.ItemId == itemId && p.OptLevel == optLevel);
+        }
+
+        /// <summary>
+        /// Gets a ability item for the specified <paramref name="itemId"/> and <paramref name="optLevel"/>
+        /// </summary>
+        /// <param name="itemId">Item Id</param>
+        /// <param name="optLevel">Opt Level</param>
+        /// <returns></returns>
+        public IEnumerable<RefExtraAbilityByEquipItemOptLevel> GetExtraAbilityItems(uint itemId, byte optLevel)
+        {
+            return ExtraAbilityByEquipItemOptLevel.Where(p => p.ItemId == itemId && p.OptLevel == optLevel);
         }
     }
 }

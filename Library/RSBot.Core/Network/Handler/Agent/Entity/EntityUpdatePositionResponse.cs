@@ -1,4 +1,5 @@
 ﻿using RSBot.Core.Components;
+using RSBot.Core.Event;
 using RSBot.Core.Objects;
 using RSBot.Core.Objects.Spawn;
 
@@ -30,9 +31,10 @@ namespace RSBot.Core.Network.Handler.Agent.Entity
         {
             var uniqueId = packet.ReadUInt();
             var position = Position.FromPacket(packet);
-            if (uniqueId == Core.Game.Player.UniqueId || (Core.Game.Player.Vehicle != null && uniqueId == Core.Game.Player.Vehicle.UniqueId))
+            if (uniqueId == Game.Player.UniqueId || Game.Player.Vehicle?.UniqueId == uniqueId)
             {
-                Core.Game.Player.StopMoving(position);
+                Game.Player.StopMoving(position);
+
                 return;
             }
 

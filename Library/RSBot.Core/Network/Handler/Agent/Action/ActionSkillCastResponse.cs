@@ -1,5 +1,5 @@
-﻿using RSBot.Core.Event;
-using RSBot.Core.Objects;
+﻿using RSBot.Core.Components;
+using RSBot.Core.Event;
 using RSBot.Core.Objects.Spawn;
 
 namespace RSBot.Core.Network.Handler.Agent.Action
@@ -35,8 +35,12 @@ namespace RSBot.Core.Network.Handler.Agent.Action
 
                 switch (errorCode)
                 {
+                    case 0x0C:
+                        // Same other skills are already running
+                        break;
+
                     case 0x0E:
-                        Core.Game.Player.EquipAmmunation();
+                        Game.Player.EquipAmmunition();
                         break;
 
                     case 0x05:
@@ -44,34 +48,41 @@ namespace RSBot.Core.Network.Handler.Agent.Action
                         break;
 
                     case 0x06: // invalid target
-                    case 0x10: // obstacle
                         break;
+
+                    case 0x10: // obstacle
+                        EventManager.FireEvent("OnTargetBehindObstacle");
+                        break;
+
                     default:
                         Log.Error($"Invalid skill error code: 0x{errorCode:X2}");
                         break;
                 }
 
                 return;
-            } 
-                
+            }
 
             var action = Objects.Action.DeserializeBegin(packet);
 
             if (action.PlayerIsExecutor)
             {
-                Core.Game.Player.StopMoving();
+                Game.Player.StopMoving();
 
-                var skill = Core.Game.Player.Skills.GetSkillInfoById(action.SkillId);
-                skill?.Update();
+                var skillInfo = Game.Player.Skills.GetSkillInfoById(action.SkillId);
+                if (skillInfo == null)
+                    skillInfo = SkillManager.Buffs.Find(p => p.Id == action.SkillId);
+
+                skillInfo?.Update();
 
                 EventManager.FireEvent("OnCastSkill", action.SkillId);
 
                 return;
             }
 
-            if(!action.TryGetExecutor<SpawnedBionic>(out var executor))
+            if (!action.TryGetExecutor<SpawnedBionic>(out var executor))
                 return;
 
+            executor.TargetId = action.TargetId;
             executor.StopMoving();
 
             if (!action.PlayerIsTarget)

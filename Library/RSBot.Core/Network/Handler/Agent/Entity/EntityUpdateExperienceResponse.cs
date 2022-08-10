@@ -1,4 +1,5 @@
-﻿using RSBot.Core.Event;
+﻿using System;
+using RSBot.Core.Event;
 
 namespace RSBot.Core.Network.Handler.Agent.Entity
 {
@@ -27,23 +28,36 @@ namespace RSBot.Core.Network.Handler.Agent.Entity
         public void Invoke(Packet packet)
         {
             packet.ReadUInt(); //Mobs unique ID!
+            
+            long experienceAmount;
+            
+            if (Game.ClientType >= GameClientType.Thailand)
+               experienceAmount = packet.ReadLong();
+            else
+               experienceAmount = packet.ReadUInt();
 
-            var experienceAmount = packet.ReadLong();
-            Core.Game.Player.Experience += experienceAmount;
+            Game.Player.Experience += experienceAmount;
 
-            var iLevel = Core.Game.Player.Level;
-            while (Core.Game.Player.Experience > Core.Game.ReferenceManager.GetRefLevel(iLevel).Exp_C)
+            var iLevel = Game.Player.Level;
+            var oldLevel = Game.Player.Level;
+
+            while (Game.Player.Experience > Game.ReferenceManager.GetRefLevel(iLevel).Exp_C)
             {
-                Core.Game.Player.Experience -= Core.Game.ReferenceManager.GetRefLevel(iLevel).Exp_C;
+                Game.Player.Experience -= Game.ReferenceManager.GetRefLevel(iLevel).Exp_C;
                 iLevel++;
             }
 
-            if (Core.Game.Player.Level < iLevel)
-                Core.Game.Player.Level = iLevel;
+            if (Game.Player.Level < iLevel)
+            {
+                Game.Player.StatPoints += Convert.ToUInt16((iLevel - oldLevel) * 3);
+                Game.Player.Level = iLevel;
+
+                Log.Notify($"Congratulations, your level has increased to lv.{Game.Player.Level}");
+
+                EventManager.FireEvent("OnLevelUp", oldLevel);
+            }
 
             EventManager.FireEvent("OnExpSpUpdate");
-
-            if (Core.Game.Player.AttackPet == null) return;
         }
     }
 }

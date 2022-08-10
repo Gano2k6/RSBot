@@ -35,20 +35,17 @@ namespace RSBot.Core.Network.Handler.Agent.Action
         {
             var targetId = packet.ReadUInt();
             var skillId = packet.ReadUInt();
-            var token = packet.ReadUInt();
+            var token = packet.ReadUInt(); 
             if (token == 0)
                 return;
 
-            var buffInfo = new BuffInfo
-            {
-                Id = skillId,
-                Token = token
-            };
 
-            if(targetId == Core.Game.Player.UniqueId)
+            var buffInfo = new SkillInfo(skillId, token);
+            if (targetId == Game.Player.UniqueId)
             {
-                Core.Game.Player.Buffs.Add(buffInfo);
+                Game.Player.State.ActiveBuffs.Add(buffInfo);
                 EventManager.FireEvent("OnAddBuff", buffInfo);
+
                 Log.Notify($"Buff [{buffInfo.Record.GetRealName()}] added.");
 
                 return;

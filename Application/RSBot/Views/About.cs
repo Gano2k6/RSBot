@@ -1,6 +1,4 @@
-﻿using RSBot.Core;
-using RSBot.Theme;
-using RSBot.Theme.Controls;
+﻿using SDUI.Controls;
 using System;
 using System.Reflection;
 
@@ -38,7 +36,7 @@ namespace RSBot.Views
             get
             {
                 var version = Assembly.GetExecutingAssembly().GetName().Version;
-                return $"v{version.Major}.{version.Minor}.{version.MinorRevision}";
+                return $"v{version.Major}.{version.Minor}";
             }
         }
 

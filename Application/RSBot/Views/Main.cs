@@ -1,20 +1,27 @@
 ﻿using RSBot.Core;
 using RSBot.Core.Client;
+using RSBot.Core.Components;
 using RSBot.Core.Event;
 using RSBot.Core.Plugins;
-using RSBot.Theme;
-using RSBot.Theme.Controls;
+using RSBot.Views.Dialog;
+using SDUI;
+using SDUI.Controls;
 using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
-using static RSBot.Theme.NativeMethods;
+using static SDUI.NativeMethods;
 
 namespace RSBot.Views
 {
     public partial class Main : CleanForm
     {
+        /// <summary>
+        /// Bot player name [_cached]
+        /// </summary>
+        private string _playerName;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Main"/> class.
         /// </summary>
@@ -23,10 +30,18 @@ namespace RSBot.Views
             InitializeComponent();
 
             CheckForIllegalCrossThreadCalls = false;
-
             RegisterEvents();
+        }
 
-            toolStripStatusLabelBeta.Alignment = ToolStripItemAlignment.Right;
+        /// <summary>
+        /// Refreshes the theme.
+        /// </summary>
+        public void RefreshTheme()
+        {
+            BackColor = ColorScheme.BackColor;
+            stripStatus.BackColor = BackColor.IsDark() ? ColorScheme.BorderColor : Color.FromArgb(33, 150, 243);
+            stripStatus.ForeColor = ColorScheme.ForeColor;
+            GlobalConfig.Save();
         }
 
         /// <summary>
@@ -50,10 +65,13 @@ namespace RSBot.Views
         /// <param name="index">The index.</param>
         private void SelectBotbase(int index)
         {
+            if (Kernel.Bot.Running)
+                return;
+
             if (menuBotbase.DropDownItems.Count <= index) return;
 
             var selectedBotbase = Kernel.BotbaseManager.Bots.ElementAt(index).Value;
-            if (selectedBotbase == null) 
+            if (selectedBotbase == null)
                 return;
 
             selectedBotbase.Translate();
@@ -61,30 +79,41 @@ namespace RSBot.Views
             menuBotbase.Text = selectedBotbase.Info.DisplayName;
             menuBotbase.Image = selectedBotbase.Info.Image;
             menuBotbase.Tag = selectedBotbase;
-            var tempHandle = tabMain.Handle; //Generate the handle for this bitch
+            _ = tabMain.Handle; //Generate the handle for the tab control
 
-            tabMain.TabPages.RemoveByKey("tabBotbase");
+            if (Kernel.Bot?.Botbase != null)
+                tabMain.TabPages.RemoveByKey(Kernel.Bot.Botbase.Info.Name);
+
             //Add the tab to the tabcontrol
-            var tabPage = new TabPage(selectedBotbase.Info.TabText)
+            var tabPage = new TabPage(LanguageManager.GetLangBySpecificKey(selectedBotbase.Info.Name, "TabText", selectedBotbase.Info.TabText))
             {
-                Name = "tabBotbase",
-                Enabled = false
+                Name = selectedBotbase.Info.Name,
+                Enabled = Game.Player != null
             };
+
             tabPage.BackColor = Color.FromArgb(200, BackColor);
             tabPage.ForeColor = ForeColor;
             tabPage.Controls.Add(selectedBotbase.GetView());
 
             tabMain.TabPages.Insert(1, tabPage);
 
-            Kernel.Bot.SetBotbase(selectedBotbase);
+            Kernel.Bot?.SetBotbase(selectedBotbase);
             GlobalConfig.Set("RSBot.BotIndex", index.ToString());
 
-            var info = new TabDisabledInfo { Name = "overlay", Location = new Point(tabMain.Width / 2 - 110, tabMain.Height - 150) };
-            tabPage.Controls.Add(info);
+            if (Game.Player == null)
+            {
+                var info = new InfoControl
+                {
+                    Name = "overlay",
+                    Text = LanguageManager.GetLang("PleaseEnterGame"),
+                    Location = new Point(tabMain.Width / 2 - 110, tabMain.Height - 150),
+                };
 
-            //So we can see it at least..
-            //control.BringToFront();
-            info.BringToFront();
+                tabPage.Controls.Add(info);
+                //So we can see it at least..
+                //control.BringToFront();
+                info.BringToFront();
+            }
         }
 
         /// <summary>
@@ -92,23 +121,25 @@ namespace RSBot.Views
         /// </summary>
         private void LoadExtensions()
         {
-            foreach (var ext in Kernel.PluginManager.Extensions.Values)
-                ext.Initialize();
+            foreach (var plugin in Kernel.PluginManager.Extensions.Values)
+                plugin.Initialize();
 
-            var tempExtensions =
+            var extensions =
                 Kernel.PluginManager.Extensions.OrderBy(entry => entry.Value.Information.TabDisplayIndex)
                     .ToDictionary(x => x.Key, x => x.Value);
 
-            foreach (var extension in tempExtensions.Where(extension => extension.Value.Information.DisplayAsTab))
+            foreach (var extension in extensions.Where(extension => extension.Value.Information.DisplayAsTab))
             {
+                extension.Value.Translate();
+
                 var tabPage = new TabPage
                 {
-                    Text = extension.Value.Information.DisplayName,
-                    Enabled = !extension.Value.Information.RequireIngame
+                    Text = LanguageManager.GetLangBySpecificKey(extension.Value.Information.InternalName, "DisplayName", extension.Value.Information.DisplayName),
+                    Enabled = !extension.Value.Information.RequireIngame,
+                    Name = extension.Value.Information.InternalName
                 };
 
                 var control = extension.Value.GetView();
-                extension.Value.Translate();
 
                 control.Dock = DockStyle.Fill;
 
@@ -118,11 +149,13 @@ namespace RSBot.Views
                 tabPage.Controls.Add(control);
                 tabMain.TabPages.Add(tabPage);
 
-                if (tabPage.Enabled) continue;
+                if (tabPage.Enabled)
+                    continue;
 
-                var info = new TabDisabledInfo
+                var info = new InfoControl
                 {
                     Name = "overlay",
+                    Text = LanguageManager.GetLang("PleaseEnterGame"),
                     Location = new Point(tabMain.Width / 2 - 110, tabMain.Height - 150)
                 };
 
@@ -133,9 +166,10 @@ namespace RSBot.Views
                 info.BringToFront();
             }
 
-            foreach (var extension in tempExtensions.Where(extension => !extension.Value.Information.DisplayAsTab))
+            foreach (var extension in extensions.Where(extension => !extension.Value.Information.DisplayAsTab))
             {
-                var menuItem = new ToolStripMenuItem(extension.Value.Information.DisplayName)
+                var menuItemText = LanguageManager.GetLangBySpecificKey(extension.Value.Information.InternalName, "DisplayName", extension.Value.Information.DisplayName);
+                var menuItem = new ToolStripMenuItem(menuItemText)
                 {
                     Enabled = !extension.Value.Information.RequireIngame
                 };
@@ -151,16 +185,24 @@ namespace RSBot.Views
         /// </summary>
         private void ConfigureSidebar()
         {
+            var size = Size;
             if (menuSidebar.Checked)
             {
-                Size = new Size(1048, 724);
+                size.Width = 1048;
                 pSidebar.Visible = true;
             }
             else
             {
-                Size = new Size(800, 724);
+                size.Width = 800;
                 pSidebar.Visible = false;
             }
+
+            size.Height = 724;
+            Size = size;
+            Width = size.Width;
+            Height = size.Height;
+            MinimumSize = size;
+            MaximumSize = size;
         }
 
         /// <summary>
@@ -189,20 +231,21 @@ namespace RSBot.Views
         /// <exception cref="System.NotImplementedException"></exception>
         private void PluginMenuItem_Click(object sender, EventArgs e)
         {
-            var menuItem = (MenuItem)sender;
+            var menuItem = (ToolStripMenuItem)sender;
             var plugin = (IPlugin)menuItem.Tag;
 
-            var window = new Form()
+            var window = new CleanForm
             {
                 Text = plugin.Information.DisplayName,
                 Name = plugin.Information.InternalName,
                 MaximizeBox = false,
-                FormBorderStyle = FormBorderStyle.FixedSingle,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
                 Icon = Icon,
                 StartPosition = FormStartPosition.CenterScreen
             };
 
             var content = plugin.GetView();
+            plugin.Translate();
             content.Dock = DockStyle.Fill;
 
             window.Size = new Size(content.Size.Width + 15, content.Size.Height + 15);
@@ -235,7 +278,6 @@ namespace RSBot.Views
         private void menuSidebar_Click(object sender, EventArgs e)
         {
             menuSidebar.Checked = !menuSidebar.Checked;
-
             GlobalConfig.Set("RSBot.ShowSidebar", menuSidebar.Checked.ToString());
 
             ConfigureSidebar();
@@ -271,24 +313,24 @@ namespace RSBot.Views
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         private void Main_Load(object sender, EventArgs e)
         {
-            //if (Kernel.Language != "English")
-                LanguageManager.Translate(this, Kernel.Language);
-            
             menuSidebar.Checked = GlobalConfig.Get("RSBot.ShowSidebar", true);
 
             foreach (var item in LanguageManager.GetLanguages())
             {
-                var dropdown = new ToolStripMenuItem(item);
+                var dropdown = new ToolStripMenuItem(item.Value);
                 dropdown.Click += LanguageDropdown_Click;
+                dropdown.Tag = item.Key;
                 languageToolStripMenuItem.DropDownItems.Add(dropdown);
 
-                if(Kernel.Language.ToString() == dropdown.Text)
+                if (Kernel.Language.ToString() == dropdown.Text)
                     dropdown.Checked = true;
             }
 
             ConfigureSidebar();
+            BackColor = ColorScheme.BackColor;
+            menuCurrentProfile.Text = ProfileManager.SelectedProfile;
 
-            EventManager.FireEvent("OnMainFormLoaded");
+            EventManager.FireEvent("OnInitialized");
         }
 
         /// <summary>
@@ -303,20 +345,33 @@ namespace RSBot.Views
             if (dropdown.Checked)
                 return;
 
-            Kernel.Language = dropdown.Text;
+            Kernel.Language = dropdown.Tag.ToString();
 
             foreach (ToolStripMenuItem item in languageToolStripMenuItem.DropDownItems)
                 item.Checked = false;
 
-            foreach (var plugin in Kernel.PluginManager.Extensions.Values)
-                plugin.Translate();
+            foreach (var plugin in Kernel.PluginManager.Extensions)
+            {
+                plugin.Value.Translate();
 
-            foreach (var botbase in Kernel.BotbaseManager.Bots.Values)
-                botbase.Translate();
+                var tabpage = tabMain.TabPages[plugin.Key];
+                tabpage.Text = LanguageManager.GetLangBySpecificKey(plugin.Key, "DisplayName");
+            }
+
+            foreach (var botbase in Kernel.BotbaseManager.Bots)
+            {
+                botbase.Value.Translate();
+
+                var tabpage = tabMain.TabPages[botbase.Key];
+                tabpage.Text = LanguageManager.GetLangBySpecificKey(botbase.Key, "DisplayName");
+            }
 
             LanguageManager.Translate(this, Kernel.Language);
 
             dropdown.Checked = true;
+
+            GlobalConfig.Set("RSBot.Language", Kernel.Language);
+            GlobalConfig.Save();
         }
 
         /// <summary>
@@ -394,8 +449,7 @@ namespace RSBot.Views
             }
 
             var exitDialog = new ExitDialog();
-
-            if (exitDialog.ShowDialog() != DialogResult.Yes)
+            if (exitDialog.ShowDialog(this) != DialogResult.Yes)
             {
                 e.Cancel = true;
                 return;
@@ -466,6 +520,13 @@ namespace RSBot.Views
                 tabPage.Enabled = false;
                 tabPage.Controls["overlay"].Show();
             }
+
+            var disconnectedText = LanguageManager.GetLang("Disconnected");
+            if (!Text.EndsWith(disconnectedText))
+            {
+                Text = $@"RSBot - {_playerName} - {disconnectedText}";
+                notifyIcon.Text = Text;
+            }
         }
 
         private void OnChangeStatusText(string text)
@@ -504,10 +565,12 @@ namespace RSBot.Views
                 tabPage.Controls["overlay"]?.Hide();
             }
 
-            foreach (MenuItem item in menuPlugins.DropDownItems)
+            foreach (ToolStripItem item in menuPlugins.DropDownItems)
                 item.Enabled = true;
 
-            Text = $@"RSBot - {Game.Player.Name}";
+            _playerName = Game.Player.Name;
+            Text = $@"RSBot - {_playerName}";
+            notifyIcon.Text = Text;
 
             if (Game.Clientless)
                 Text += " [Clientless]";
@@ -570,33 +633,73 @@ namespace RSBot.Views
 
         private void darkToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            GlobalConfig.Set("RSBot.Theme.Color", Color.Black.ToArgb());
-            ColorScheme.Load();
-            ChangeTheme();
-            GlobalConfig.Save();
+            GlobalConfig.Set("SDUI.Color", Color.Black.ToArgb());
+            ColorScheme.BackColor = Color.Black;
+
+            RefreshTheme();
         }
 
         private void lightToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            GlobalConfig.Set("RSBot.Theme.Color", Color.White.ToArgb());
-            ColorScheme.Load();
-            ChangeTheme();
-            GlobalConfig.Save();
+            GlobalConfig.Set("SDUI.Color", Color.White.ToArgb());
+            ColorScheme.BackColor = Color.White;
+
+            RefreshTheme();
         }
 
         private void coloredToolStripMenuItem_Click(object sender, EventArgs e)
         {
             var colorDialog = new ColorDialog();
-            var customColors = GlobalConfig.GetArray<int>("RSBot.Theme.CustomColors");
+            var customColors = GlobalConfig.GetArray<int>("SDUI.CustomColors");
             colorDialog.CustomColors = customColors;
             if (colorDialog.ShowDialog() == DialogResult.OK)
             {
-                GlobalConfig.Set("RSBot.Theme.Color", colorDialog.Color.ToArgb());
-                GlobalConfig.SetArray("RSBot.Theme.CustomColors", colorDialog.CustomColors);
-                ColorScheme.Load();
-                ChangeTheme();
-                GlobalConfig.Save();
+                GlobalConfig.Set("SDUI.Color", colorDialog.Color.ToArgb());
+                GlobalConfig.SetArray("SDUI.CustomColors", colorDialog.CustomColors);
+                ColorScheme.BackColor = colorDialog.Color;
+                BackColor = ColorScheme.BackColor;
+
+                RefreshTheme();
             }
+        }
+
+        private void menuSelectProfile_Click(object sender, EventArgs e)
+        {
+            var dialog = new ProfileSelectionDialog();
+            dialog.StartPosition = FormStartPosition.CenterParent;
+            dialog.ShowInTaskbar = false;
+            if (dialog.ShowDialog() != DialogResult.OK)
+                return;
+
+            if (dialog.SelectedProfile == ProfileManager.SelectedProfile)
+                return;
+
+            var oldSroPath = GlobalConfig.Get("RSBot.SilkroadDirectory", "");
+
+            //We need this to check if the sro directories are different
+            var tempNewConfig = new Config(ProfileManager.GetProfileFile(dialog.SelectedProfile));
+
+            if (oldSroPath != tempNewConfig.Get("RSBot.SilkroadDirectory", ""))
+            {
+                if (MessageBox.Show("This profile references to a different client, do you want to restart the bot?", "Restart bot?", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK)
+                    Application.Restart();
+
+            }
+
+            ProfileManager.SetSelectedProfile(dialog.SelectedProfile);
+            GlobalConfig.Load();
+
+            EventManager.FireEvent("OnProfileChanged");
+            menuCurrentProfile.Text = dialog.SelectedProfile;
+
+            if (Game.Player == null)
+                return;
+
+            //Reload player config
+            PlayerConfig.Load(Game.Player.Name);
+
+            //A little hack to tell all plugins to reload their UI
+            EventManager.FireEvent("OnLoadCharacter");
         }
     }
 }

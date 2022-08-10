@@ -1,6 +1,4 @@
 ﻿using RSBot.Core.Event;
-using RSBot.Core.Objects;
-using System.Collections.Generic;
 
 namespace RSBot.Core.Network.Handler.Agent.Inventory
 {
@@ -28,28 +26,20 @@ namespace RSBot.Core.Network.Handler.Agent.Inventory
         /// <param name="packet">The packet.</param>
         public void Invoke(Packet packet)
         {
-            if (Core.Game.ChunkedPacket == null)
+            if (Game.ChunkedPacket == null)
                 return;
 
-            packet = Core.Game.ChunkedPacket;
+            packet = Game.ChunkedPacket;
             packet.Lock();
 
-            Core.Game.Player.Storage = new Storage
-            {
-                Items = new List<InventoryItem>(),
-                Size = packet.ReadByte()
-            };
+            var storage = Game.Player.GuildStorage;
+            storage.Deserialize(packet);
 
-            var itemAmount = packet.ReadByte();
+            EventManager.FireEvent("OnGuildStorageData");
 
-            for (var i = 0; i < itemAmount; i++)
-                Core.Game.Player.Storage.Items.Add(InventoryItem.FromPacket(packet));
+            Log.Notify($"Found {storage.Count} item(s) in guild storage.");
 
-            EventManager.FireEvent("OnStorageData");
-
-            Log.Notify($"Found {Core.Game.Player.Storage.Items.Count} item(s) in storage");
-
-            Core.Game.ChunkedPacket = null;
+            Game.ChunkedPacket = null;
         }
     }
 }

@@ -7,30 +7,33 @@
         public byte Level;
         public long Exp_C;
         public int Exp_M;
-
+        /*public int Cost_M;
+        public int Cost_ST;
+        public int GUST_Mob_Exp;
+        public int JobExp_Trader;
+        public int JobExp_Robber;
+        public int JobExp_Hunter;*/
+        public long Exp_C_Pet2;
+        public int StoredSp_Pet2;
         #endregion Fields
 
         public byte PrimaryKey => Level;
 
         public bool Load(ReferenceParser parser)
         {
-            if (!parser.TryParseByte(0, out Level))
+            if (!parser.TryParse(0, out Level))
                 return false;
 
-            parser.TryParseLong(1, out Exp_C);
-            parser.TryParseInt(2, out Exp_M);
+            parser.TryParse(1, out Exp_C);
+            parser.TryParse(2, out Exp_M);
+
+            if (Game.ClientType >= GameClientType.Chinese)
+            {
+                parser.TryParse(9, out Exp_C_Pet2);
+                parser.TryParse(10, out StoredSp_Pet2);
+            }
 
             return true;
         }
     }
 }
-
-//Lvl tinyint
-//Exp_C bigint
-//Exp_M int
-//Cost_M  int
-//Cost_ST int
-//GUST_Mob_Exp    int
-//JobExp_Trader   int
-//JobExp_Robber   int
-//JobExp_Hunter   int

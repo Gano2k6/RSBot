@@ -10,7 +10,7 @@ namespace RSBot.Protection.Components.Town
         /// <summary>
         /// The last tick count
         /// </summary>
-        private static long _lastTick = Environment.TickCount;
+        private static long _lastTick = Kernel.TickCount;
 
         /// <summary>
         /// Initializes this instance.
@@ -45,10 +45,10 @@ namespace RSBot.Protection.Components.Town
             if (!PlayerConfig.Get<bool>("RSBot.Protection.checkDurability"))
                 return;
 
-            if (Environment.TickCount - _lastTick < 10000)
+            if (Kernel.TickCount - _lastTick < 10000)
                 return;
 
-            _lastTick = Environment.TickCount;
+            _lastTick = Kernel.TickCount;
 
             for (byte slot = 0; slot < 8; slot++)
             {
@@ -56,6 +56,9 @@ namespace RSBot.Protection.Components.Town
                 if (item == null)
                     return;
 
+                if (!item.Record.IsEquip)
+                    continue;
+                
                 if (item.Durability > 6)
                     continue;
 

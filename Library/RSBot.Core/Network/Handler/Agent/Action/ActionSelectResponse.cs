@@ -38,13 +38,16 @@ namespace RSBot.Core.Network.Handler.Agent.Action
                 return;
             }
 
-            Core.Game.SelectedEntity = entity;
+            Game.SelectedEntity = entity;
 
             if (entity is SpawnedMonster)
             {
                 var hasHealth = packet.ReadBool();
                 if (hasHealth)
                     entity.Health = packet.ReadInt();
+                
+                /*if (Game.ClientType >= GameClientType.Global)
+                    packet.ReadUInt(); // ??*/
 
                 //entity.Talk.Deserialize(packet);
             }

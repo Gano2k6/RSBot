@@ -1,7 +1,6 @@
-﻿using RSBot.Chat.Objects;
-using RSBot.Core;
+﻿using RSBot.Core;
 using RSBot.Core.Event;
-using RSBot.Theme.Extensions;
+using RSBot.Core.Objects;
 using System;
 using System.Windows.Forms;
 

@@ -77,7 +77,9 @@ namespace RSBot.Core.Network
         /// <param name="destination">The destination.</param>
         internal static void CallHandler(Packet packet, PacketDestination destination)
         {
-            if (Handlers == null) return;
+            if (Handlers == null) 
+                return;
+
             foreach (var handler in Handlers.Where(handler => handler != null && handler.Opcode == packet.Opcode && handler.Destination == destination))
             {
                 handler.Invoke(packet);
@@ -93,9 +95,8 @@ namespace RSBot.Core.Network
         /// <returns></returns>
         internal static Packet CallHook(Packet packet, PacketDestination destination)
         {
-            if (Hooks == null || packet == null) return packet;
-
-            foreach (var hook in Hooks.Where(hook => packet != null && (hook.Opcode == packet.Opcode && hook.Destination == destination)))
+            var hooks = Hooks?.Where(hook => packet != null && hook.Opcode == packet.Opcode && hook.Destination == destination);
+            foreach (var hook in hooks)
                 packet = hook.ReplacePacket(packet);
 
             return packet;
@@ -109,12 +110,6 @@ namespace RSBot.Core.Network
         {
             lock (_lock)
             {
-                if (packet == null) 
-                    return;
-
-                if (!packet.Locked) 
-                    packet.Lock();
-
                 var tempCallbacks = _callbacks.Where(c => c.ResponseOpcode == packet.Opcode);
 
                 foreach (var callback in tempCallbacks)
@@ -123,7 +118,7 @@ namespace RSBot.Core.Network
                     callback.Invoke(packet);
                 }
 
-                _callbacks.RemoveAll(p => p.Received || p.Timeout);
+                _callbacks.RemoveAll(c => c.IsClosed);
             }
         }
 
@@ -134,7 +129,11 @@ namespace RSBot.Core.Network
         /// <param name="destination">The destination.</param>
         public static void SendPacket(Packet packet, PacketDestination destination)
         {
-            if (Kernel.Proxy == null) return;
+            if (Kernel.Proxy == null) 
+                return;
+
+            if(!packet.Locked)
+                packet.Lock();
 
             try
             {
@@ -171,6 +170,29 @@ namespace RSBot.Core.Network
                 _callbacks.AddRange(callbacks);
 
             SendPacket(packet, destination);
+        }
+
+        /// <summary>
+        /// Gets the handlers by the specified opcode. If none specified, all handlers will be returned.
+        /// </summary>
+        /// <param name="opcode">The opcode.</param>
+        /// <returns></returns>
+        public static List<IPacketHandler> GetHandlers(ushort? opcode = null)
+        {
+            if (opcode == null)
+                return Handlers;
+
+            return Handlers.Where(h => h.Opcode == opcode).ToList();
+        }
+
+        /// <summary>
+        /// Gets the hooks by the specified opcode. If none specified, all hooks will be returned.
+        /// </summary>
+        /// <param name="opcode">The opcode.</param>
+        /// <returns></returns>
+        public static List<IPacketHook> GetHooks(ushort? opcode = null)
+        {
+            return opcode == null ? Hooks : Hooks.Where(h => h.Opcode == opcode).ToList();
         }
     }
 }

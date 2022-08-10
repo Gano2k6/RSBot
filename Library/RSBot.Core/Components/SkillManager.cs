@@ -1,4 +1,5 @@
 ﻿using RSBot.Core.Client.ReferenceObjects;
+using RSBot.Core.Event;
 using RSBot.Core.Network;
 using RSBot.Core.Objects;
 using RSBot.Core.Objects.Skill;
@@ -11,14 +12,6 @@ using System.Threading;
 
 namespace RSBot.Core.Components
 {
-    public enum ActionType
-    {
-        None,
-        AttackSkill,
-        BuffSkill,
-        AutoAttack
-    }
-
     public static class SkillManager
     {
         /// <summary>
@@ -59,9 +52,24 @@ namespace RSBot.Core.Components
         public static List<SkillInfo> Buffs { get; set; }
 
         /// <summary>
-        /// Last action type
+        /// The last casted skill id
         /// </summary>
-        public static ActionType LastActionType { get; private set; }
+        public static uint LastCastedSkillId;
+
+        /// <summary>
+        /// Is the last action basic skill (Auto attack) <c>true</c>; otherwise <c>false</c>
+        /// </summary>
+        public static bool IsLastCastedBasic => _baseSkills.Contains(LastCastedSkillId);
+
+        /// <summary>
+        /// Basic skills
+        /// </summary>
+        private static uint[] _baseSkills = new uint[]
+        {
+            70,40,2,8421,9354,
+            9355,11162,9944,8419,
+            8420,11526,10625
+        };
 
         /// <summary>
         /// Initializes this instance.
@@ -71,7 +79,18 @@ namespace RSBot.Core.Components
             Skills = Enum.GetValues(typeof(MonsterRarity)).Cast<MonsterRarity>().ToDictionary(v => v, v => new List<SkillInfo>());
             Buffs = new List<SkillInfo>();
 
+            EventManager.SubscribeEvent("OnCastSkill", new Action<uint>(OnCastSkill));
+
             Log.Debug($"Initialized [SkillManager] for [{Skills.Count}] different mob rarities!");
+        }
+
+        /// <summary>
+        /// Call after casted skill
+        /// </summary>
+        /// <param name="skillId">The casted skill id</param>
+        private static void OnCastSkill(uint skillId)
+        {
+            LastCastedSkillId = skillId;
         }
 
         /// <summary>
@@ -90,10 +109,10 @@ namespace RSBot.Core.Components
         /// Gets the next skill.
         /// </summary>
         /// <returns></returns>
-        public static SkillInfo GetNextSkill()
+        public static SkillInfo? GetNextSkill()
         {
             var entity = Game.SelectedEntity;
-            if (entity == null) 
+            if (entity == null)
                 return null;
 
             var rarity = MonsterRarity.General;
@@ -117,10 +136,13 @@ namespace RSBot.Core.Components
             }
             else if (distance < 10)
             {
-                var stopwatch = Stopwatch.StartNew();
-                while (Skills[rarity].Count > 0)
+                var counter = -1;
+                var skillCount = Skills[rarity].Count;
+                while (skillCount > 0 && counter < skillCount)
                 {
+                    counter++;
                     _lastIndex++;
+
                     if (_lastIndex > Skills[rarity].Count - 1)
                         _lastIndex = 0;
 
@@ -140,9 +162,7 @@ namespace RSBot.Core.Components
                 if (weapon != null)
                     weaponRange = weapon.Record.Range / 10;
                 */
-
-                var stopwatch = Stopwatch.StartNew();
-
+                
                 for (int i = 0; i < Skills[rarity].Count; i++)
                 {
                     var s = Skills[rarity][i];
@@ -168,6 +188,9 @@ namespace RSBot.Core.Components
         /// <param name="skill">The using skill</param>
         public static bool CheckSkillRequired(RefSkill skill)
         {
+            if (skill.ReqCommon_Mastery1 == 1)
+                return true;
+
             InventoryItem requiredItem = null;
             TypeIdFilter filter = null;
 
@@ -217,7 +240,7 @@ namespace RSBot.Core.Components
 
             if (movingSlot == 6 && requiredItem.Record.TwoHanded == 0)
             {
-                // find and equip the shield item automaticaly
+                // find and equip the shield item automatically
                 filter = new TypeIdFilter(3, 1, 4, (byte)(Game.Player.Race == ObjectCountry.Chinese ? 1 : 2));
                 var shieldItem = Game.Player.Inventory.GetItemBest(filter);
                 if (shieldItem != null && shieldItem.Slot != 7)
@@ -237,9 +260,7 @@ namespace RSBot.Core.Components
 
             if (entity.State.LifeState == LifeState.Dead)
                 return false;
-
-            var weapon = Game.Player.Inventory.GetItemAt(6);
-
+            
             if (!CheckSkillRequired(skill.Record))
                 return false;
 
@@ -248,15 +269,17 @@ namespace RSBot.Core.Components
             packet.WriteByte(4); //Use Skill
             packet.WriteUInt(skill.Id);
             packet.WriteByte(ActionTarget.Entity);
+
+            // unknown byte
+            if (Game.ClientType < GameClientType.Thailand)
+                packet.WriteByte(1);
+
             packet.WriteUInt(targetId);
-            packet.Lock();
 
             Log.Debug($"Skill Attacking to: {targetId} State: {entity.State.LifeState} Health: {entity.Health} HasHealth: {entity.HasHealth} Dst: {System.Math.Round(entity.DistanceToPlayer, 1)}");
 
-            LastActionType = ActionType.AttackSkill;
-
             PacketManager.SendPacket(packet, PacketDestination.Server);
-            
+
             return true;
         }
 
@@ -322,16 +345,10 @@ namespace RSBot.Core.Components
             packet.WriteByte(ActionTarget.Entity);
             packet.WriteUInt(targetId);
 
-            packet.Lock();
+            var callback = new AwaitCallback(response => response.ReadByte() == 0x02 && response.ReadByte() == 0x00
+                ? AwaitCallbackResult.Success : AwaitCallbackResult.ConditionFailed, 0xB074);
 
-            var callback = new AwaitCallback(response =>
-            {
-                return response.ReadByte() == 0x02 && response.ReadByte() == 0x00
-                            ? AwaitCallbackResult.Received : AwaitCallbackResult.None;
-            }, 0xB074);
-
-
-            RefSkill altSkill = skill.Record;
+            var altSkill = skill.Record;
             while (altSkill != null)
             {
                 duration += altSkill.Action_CastingTime +
@@ -367,9 +384,10 @@ namespace RSBot.Core.Components
         /// <param name="skillId">The skill identifier.</param>
         public static void CastBuff(SkillInfo skill, uint target = 0)
         {
+            /*
             if (!Game.Player.Skills.HasSkill(skill.Id))
                 return;
-
+            */
             if (!CheckSkillRequired(skill.Record))
                 return;
 
@@ -389,8 +407,6 @@ namespace RSBot.Core.Components
             else
                 packet.WriteByte(ActionTarget.None);
 
-            packet.Lock();
-
             var asyncCallback = new AwaitCallback(response =>
             {
                 var targetId = response.ReadUInt();
@@ -398,19 +414,18 @@ namespace RSBot.Core.Components
 
                 if (targetId == (target == 0 ? Game.Player.UniqueId : target) &&
                     castedSkillId == skill.Id)
-                    return AwaitCallbackResult.Received;
+                    return AwaitCallbackResult.Success;
 
-                return AwaitCallbackResult.None;
+                return AwaitCallbackResult.ConditionFailed;
 
             }, 0xB0BD);
 
             var callback = new AwaitCallback(response =>
             {
                 return response.ReadByte() == 0x02 && response.ReadByte() == 0x00
-                    ? AwaitCallbackResult.Received : AwaitCallbackResult.None;
+                    ? AwaitCallbackResult.Success : AwaitCallbackResult.ConditionFailed;
             }, 0xB074);
 
-            LastActionType = ActionType.BuffSkill;
             PacketManager.SendPacket(packet, PacketDestination.Server, asyncCallback, callback);
 
             asyncCallback.AwaitResponse(skill.Record.Action_CastingTime +
@@ -440,12 +455,15 @@ namespace RSBot.Core.Components
             packet.WriteByte(1); //Execute
             packet.WriteByte(1); //Use Skill
             packet.WriteByte(ActionTarget.Entity);
+
+            // unknown byte
+            if (Game.ClientType < GameClientType.Thailand)
+                packet.WriteByte(1);
+
             packet.WriteUInt(entity.UniqueId);
-            packet.Lock();
 
             Log.Debug($"Normal Attacking to: {entity.UniqueId} State: {entity.State.LifeState} Health: {entity.Health} HasHealth: {entity.HasHealth} Dst: {System.Math.Round(entity.DistanceToPlayer, 1)}");
 
-            LastActionType = ActionType.AutoAttack;
             PacketManager.SendPacket(packet, PacketDestination.Server);
 
             return true;
@@ -470,7 +488,6 @@ namespace RSBot.Core.Components
             packet.WriteFloat(position.XOffset);
             packet.WriteFloat(position.ZOffset);
             packet.WriteFloat(position.YOffset);
-            packet.Lock();
 
             PacketManager.SendPacket(packet, PacketDestination.Server);
         }
@@ -489,7 +506,6 @@ namespace RSBot.Core.Components
             packet.WriteUInt(skillId);
             packet.WriteByte(ActionTarget.None);
 
-            packet.Lock();
             PacketManager.SendPacket(packet, PacketDestination.Server);
         }
 
@@ -501,12 +517,11 @@ namespace RSBot.Core.Components
         {
             var packet = new Packet(0x7074);
             packet.WriteByte(0x02); //Cancel
-            packet.Lock();
 
             var callback = new AwaitCallback(response =>
             {
                 return response.ReadByte() == 0x02 && response.ReadByte() == 0x00
-                ? AwaitCallbackResult.Received : AwaitCallbackResult.None;
+                ? AwaitCallbackResult.Success : AwaitCallbackResult.ConditionFailed;
             }, 0xB074);
 
             PacketManager.SendPacket(packet, PacketDestination.Server, callback);

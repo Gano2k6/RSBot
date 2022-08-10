@@ -2,7 +2,7 @@
 using RSBot.Core.Plugins;
 using RSBot.Inventory.Subscriber;
 using RSBot.Inventory.Views;
-using RSBot.Theme;
+
 using System.Windows.Forms;
 
 namespace RSBot.Inventory
@@ -19,7 +19,7 @@ namespace RSBot.Inventory
         {
             DisplayAsTab = true,
             DisplayName = "Inventory",
-            InternalName = "RSBot.Invenotry",
+            InternalName = "RSBot.Inventory",
             LoadIndex = 6,
             TabDisplayIndex = 6
         };
@@ -30,7 +30,6 @@ namespace RSBot.Inventory
         public void Initialize()
         {
             Views.View.Instance = new Main();
-            Views.View.ItemDialog = new UseItemDialog();
 
             BuyItemSubscriber.SubscribeEvents();
         }
@@ -50,7 +49,6 @@ namespace RSBot.Inventory
         public void Translate()
         {
             LanguageManager.Translate(GetView(), Kernel.Language);
-            LanguageManager.Translate(Views.View.ItemDialog, Kernel.Language);
         }
     }
 }

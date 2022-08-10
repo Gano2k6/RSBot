@@ -68,17 +68,22 @@ namespace RSBot.Core.Objects
             return KnownSkills.Find(s => s.Record?.GetRealName() == name);
         }
 
+        public SkillInfo GetSkillByCodeName(string codeName)
+        {
+            return KnownSkills.FirstOrDefault(s => s.Record?.Basic_Code == codeName);
+        }
+
         /// <summary>
         /// Gets the name of the skill by.
         /// </summary>
         /// <param name="name">The name.</param>
         /// <returns></returns>
-        public RefSkill GetSkillRecordByName(string name)
+        public SkillInfo? GetSkillRecordByName(string name)
         {
             if (KnownSkills == null || name == null) 
                 return null;
 
-            return KnownSkills.Find(s => s.Record.GetRealName() == name)?.Record;
+            return KnownSkills.Find(s => s.Record.GetRealName() == name);
         }
 
         /// <summary>
@@ -89,6 +94,17 @@ namespace RSBot.Core.Objects
         public SkillInfo GetSkillInfoById(uint skillId)
         {
             return KnownSkills.Find(s => s.Id == skillId);
+        }
+
+
+        /// <summary>
+        /// Gets the skill information by the group identifier.
+        /// </summary>
+        /// <param name="skillGroupId">The skill group identifier.</param>
+        /// <returns></returns>
+        public SkillInfo GetSkillInfoByGroupId(int skillGroupId)
+        {
+            return KnownSkills.FirstOrDefault(s => s.Record.GroupID == skillGroupId);
         }
 
         /// <summary>

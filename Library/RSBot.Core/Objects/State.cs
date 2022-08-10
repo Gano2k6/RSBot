@@ -69,7 +69,15 @@ namespace RSBot.Core.Objects
         /// <value>
         /// The active buffs.
         /// </value>
-        public List<BuffInfo> ActiveBuffs { get; } = new List<BuffInfo>();
+        public List<SkillInfo> ActiveBuffs { get; } = new();
+
+        /// <summary>
+        /// Gets the active item perks.
+        /// </summary>
+        /// <value>
+        /// The active item perks.
+        /// </value>
+        public Dictionary<uint, ItemPerk> ActiveItemPerks { get; } = new();
 
         /// <summary>
         /// Gets or sets the state of the PVP.
@@ -123,12 +131,10 @@ namespace RSBot.Core.Objects
             var buffCount = packet.ReadByte();
             for (var i = 0; i < buffCount; i++)
             {
-                var buff = new BuffInfo
-                {
-                    Id = packet.ReadUInt(),
-                    Token = packet.ReadUInt()
-                };
+                var id = packet.ReadUInt();
+                var token = packet.ReadUInt();
 
+                var buff = new SkillInfo(id, token);
                 if (buff.Record == null)
                     continue;
 
@@ -143,7 +149,7 @@ namespace RSBot.Core.Objects
         /// Gets the active buff by skill identifier.
         /// </summary>
         /// <returns></returns>
-        public bool HasActiveBuff(SkillInfo skill, out BuffInfo buff)
+        public bool HasActiveBuff(SkillInfo skill, out SkillInfo buff)
         {
             buff = ActiveBuffs.Find(p => p.Record.Action_Overlap == skill.Record.Action_Overlap && p.Record.Basic_Activity == skill.Record.Basic_Activity);
 
@@ -154,7 +160,7 @@ namespace RSBot.Core.Objects
         /// Gets the active buff by skill identifier.
         /// </summary>
         /// <returns></returns>
-        public bool HasActiveBuff(uint token, out BuffInfo buff)
+        public bool TryGetActiveBuff(uint token, out SkillInfo buff)
         {
             buff = ActiveBuffs.Find(p => p.Token == token);
 
@@ -165,7 +171,7 @@ namespace RSBot.Core.Objects
         /// Gets the active buff by skill identifier.
         /// </summary>
         /// <returns></returns>
-        public bool TryRemoveActiveBuff(uint token, out BuffInfo removedBuff)
+        public bool TryRemoveActiveBuff(uint token, out SkillInfo removedBuff)
         {
             removedBuff = ActiveBuffs.Find(p => p.Token == token);
             if (removedBuff == null)
@@ -175,21 +181,12 @@ namespace RSBot.Core.Objects
         }
 
         /// <summary>
-        /// Gets the active buff by skill identifier.
+        /// Checks two active DoTs.
         /// </summary>
         /// <returns></returns>
-        public BuffInfo GetActiveBuffBySkillId(uint skillId)
+        public bool HasTwoDots()
         {
-            return ActiveBuffs.FirstOrDefault(b => b.Id == skillId);
-        }
-
-        /// <summary>
-        /// Gets the active buff by skill identifier.
-        /// </summary>
-        /// <returns></returns>
-        public BuffInfo GetActiveBuff(uint token)
-        {
-            return ActiveBuffs.FirstOrDefault(b => b.Token == token);
+            return ActiveBuffs.Where(b => b.IsDot).Count() >= 2;
         }
     }
 }

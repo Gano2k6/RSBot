@@ -19,6 +19,9 @@ namespace RSBot.Core.Network
 
         public delegate void PacketReceivedEventHandler(Packet packet);
         public event PacketReceivedEventHandler OnPacketReceived;
+        
+        public delegate void PacketSentEventHandler(Packet packet);
+        public event PacketSentEventHandler OnPacketSent;
 
         /// <summary>
         /// Gets or sets a value indicating whether this instance is closing.
@@ -198,9 +201,11 @@ namespace RSBot.Core.Network
             if (IsClosing || !EnablePacketDispatcher)
                 return;
 
+            int receivedSize = 0;
+
             try
             {
-                var receivedSize = _socket.EndReceive(ar, out var error);
+                receivedSize = _socket.EndReceive(ar, out var error);
                 if(receivedSize == 0 || error != SocketError.Success)
                 {
                     OnDisconnected?.Invoke();
@@ -219,16 +224,16 @@ namespace RSBot.Core.Network
                     Listen();
                 }
             }
-            catch (HandshakeSecurityException)
+            catch (HandshakeSecurityException ex)
             {
-                Log.Notify("[Fatal]: Could not handshake the client, restarting client process now...");
+                Log.Error("[Fatal]: Could not handshake the client, restarting client process now...");
                 Game.Start();
             }
             finally
             {
                 try
                 {
-                    if(_socket.Connected)
+                    if(receivedSize != 0 && _socket != null && _socket.Connected)
                         _socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, OnBeginReceiveCallback, null);
                 }
                 catch
@@ -243,6 +248,8 @@ namespace RSBot.Core.Network
         /// <param name="packet">The packet.</param>
         public void Send(Packet packet)
         {
+            OnPacketSent?.Invoke(packet);
+
             _protocol?.Send(packet);
         }
 

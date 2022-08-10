@@ -20,6 +20,9 @@ namespace RSBot.Core.Network
         public delegate void OnPacketReceivedEventHandler(Packet packet);
         public event OnPacketReceivedEventHandler OnPacketReceived;
 
+        public delegate void PacketSentEventHandler(Packet packet);
+        public event PacketSentEventHandler OnPacketSent;
+
         /// <summary>
         /// Gets or sets the socket.
         /// </summary>
@@ -161,7 +164,7 @@ namespace RSBot.Core.Network
                     Thread.Sleep(1);
                 }
 
-                if (IsClosing) 
+                if (IsClosing)
                     return;
 
                 ProcessPacketsThreaded();
@@ -215,9 +218,11 @@ namespace RSBot.Core.Network
             if (IsClosing || !EnablePacketDispatcher)
                 return;
 
+            int receivedSize = 0;
+
             try
             {
-                var receivedSize = _socket.EndReceive(ar, out var error);
+                receivedSize = _socket.EndReceive(ar, out var error);
                 if (receivedSize == 0 || error != SocketError.Success)
                 {
                     OnDisconnected?.Invoke();
@@ -242,7 +247,8 @@ namespace RSBot.Core.Network
             {
                 try
                 {
-                    _socket?.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, OnBeginReceiveCallback, null);
+                    if (receivedSize != 0 && _socket != null && _socket.Connected)
+                        _socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, OnBeginReceiveCallback, null);
                 }
                 catch
                 {
@@ -257,6 +263,7 @@ namespace RSBot.Core.Network
         /// <param name="packet">The packet.</param>
         public void Send(Packet packet)
         {
+            OnPacketSent?.Invoke(packet);
             _protocol.Send(packet);
         }
 

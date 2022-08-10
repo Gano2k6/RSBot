@@ -26,12 +26,61 @@ namespace RSBot.General.Views
             CheckForIllegalCrossThreadCalls = false;
 
             InitializeComponent();
+            SubscribeEvents();
+        }
 
+        /// <summary>
+        /// Subscribes the events.
+        /// </summary>
+        private void SubscribeEvents()
+        {
+            EventManager.SubscribeEvent("OnLoadVersionInfo", new Action<VersionInfo>(OnLoadVersionInfo));
+            EventManager.SubscribeEvent("OnAgentServerConnected", OnAgentServerConnected);
+            EventManager.SubscribeEvent("OnAgentServerDisconnected", OnAgentServerDisconnected);
+            EventManager.SubscribeEvent("OnGatewayServerDisconnected", OnGatewayServerDisconnected);
+            EventManager.SubscribeEvent("OnClientConnected", OnClientConnected);
+            EventManager.SubscribeEvent("OnEnterGame", OnEnterGame);
+            EventManager.SubscribeEvent("OnStartClient", OnStartClient);
+            EventManager.SubscribeEvent("OnExitClient", OnExitClient);
+            EventManager.SubscribeEvent("OnCharacterListReceived", OnCharacterListReceived);
+            EventManager.SubscribeEvent("OnInitialized", OnInitialized);
+            EventManager.SubscribeEvent("OnProfileChanged", OnProfileChanged);
+
+        }
+
+        private void OnProfileChanged()
+        {
+            Components.Accounts.Load();
+            LoadAccounts();
+        }
+
+        /// <summary>
+        /// Called when gateway server disconnected.
+        /// </summary>
+        private void OnGatewayServerDisconnected()
+        {
+            View.PendingWindow?.Hide();
+
+            if (!Kernel.Proxy.IsConnectedToAgentserver)
+            {
+                Game.Clientless = false;
+
+                btnStartClient.Enabled = true;
+                btnStartClientless.Enabled = true;
+                btnStartClientless.Text = LanguageManager.GetLang("Start") + " Clientless";
+
+                Kernel.Proxy.Shutdown();
+            }
+        }
+
+        /// <summary>
+        /// Called when main window loaded.
+        /// </summary>
+        private void OnInitialized()
+        {
             comboBoxClientType.Items.AddRange(Enum.GetNames(typeof(GameClientType)));
-
             comboCharacter.SelectedIndex = 0;
 
-            SubscribeEvents();
             Components.Accounts.Load();
             LoadAccounts();
 
@@ -45,27 +94,12 @@ namespace RSBot.General.Views
             checkStayConnected.Checked = GlobalConfig.Get<bool>("RSBot.General.StayConnected");
             checkBoxBotTrayMinimized.Checked = GlobalConfig.Get<bool>("RSBot.General.TrayWhenMinimize");
             txtStaticCaptcha.Text = GlobalConfig.Get<string>("RSBot.General.StaticCaptcha");
-            comboBoxClientType.SelectedItem = Game.ClientType.ToString();
+            comboBoxClientType.SelectedIndex = (int)Game.ClientType;
 
             if (File.Exists(GlobalConfig.Get<string>("RSBot.SilkroadDirectory") + "\\media.pk2"))
                 return;
 
             txtSilkroadPath.BackColor = Color.Red;
-        }
-
-        /// <summary>
-        /// Subscribes the events.
-        /// </summary>
-        private void SubscribeEvents()
-        {
-            EventManager.SubscribeEvent("OnLoadVersionInfo", new Action<VersionInfo>(OnLoadVersionInfo));
-            EventManager.SubscribeEvent("OnAgentServerConnected", OnAgentServerConnected);
-            EventManager.SubscribeEvent("OnAgentServerDisconnected", OnAgentServerDisconnected);
-            EventManager.SubscribeEvent("OnClientConnected", OnClientConnected);
-            EventManager.SubscribeEvent("OnEnterGame", OnEnterGame);
-            EventManager.SubscribeEvent("OnStartClient", OnStartClient);
-            EventManager.SubscribeEvent("OnExitClient", OnExitClient);
-            EventManager.SubscribeEvent("OnCharacterListReceived", OnCharacterListReceived);
         }
 
         /// <summary>
@@ -130,7 +164,7 @@ namespace RSBot.General.Views
         {
             Game.Start();
 
-            var startedResult = await ClientManager.Start();
+            var startedResult = await ClientManager.Start().ConfigureAwait(false);
             if (!startedResult)
                 Log.WarnLang("ClientStartingError");
         }
@@ -457,7 +491,6 @@ namespace RSBot.General.Views
                 var msgBoxContent = LanguageManager.GetLang("MsgBoxDisconnectDialogContent");
 
                 var result = MessageBox.Show(msgBoxContent, msgBoxTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-
                 if (result == DialogResult.No)
                     return;
 
@@ -550,8 +583,7 @@ namespace RSBot.General.Views
                 return;
             }
 
-            if (!Enum.TryParse<GameClientType>(comboBoxClientType.SelectedItem.ToString(), out var clientType))
-                return;
+            var clientType = (GameClientType)comboBoxClientType.SelectedIndex;
 
             GlobalConfig.Set("RSBot.Game.ClientType", clientType);
             Game.ClientType = clientType;

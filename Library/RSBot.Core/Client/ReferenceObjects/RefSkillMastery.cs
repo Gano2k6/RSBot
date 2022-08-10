@@ -32,9 +32,13 @@
 
         public bool Load(ReferenceParser parser)
         {
-            parser.TryParseUInt(0, out ID);
+            parser.TryParse(0, out ID);
             //parser.TryParseString(1, out Name);
-            parser.TryParseString(2, out NameCode);
+            if(Game.ClientType >= GameClientType.Chinese)
+                parser.TryParse(3, out NameCode);
+            else
+                parser.TryParse(2, out NameCode);
+
             //parser.TryParseByte(3, out GroupNum);
             //parser.TryParseString(4, out Description);
             //parser.TryParseString(5, out TabNameCode);

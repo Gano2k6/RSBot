@@ -1,5 +1,6 @@
 ﻿using RSBot.Core;
 using RSBot.Core.Event;
+using RSBot.Core.Objects;
 
 namespace RSBot.Protection.Components.Player
 {
@@ -18,7 +19,7 @@ namespace RSBot.Protection.Components.Player
         /// </summary>
         private static void SubscribeEvents()
         {
-            EventManager.SubscribeEvent("OnPlayerBadEffect", OnPlayerBadEffect);
+            EventManager.SubscribeEvent("OnTick", OnPlayerBadEffect);
         }
 
         /// <summary>
@@ -27,9 +28,14 @@ namespace RSBot.Protection.Components.Player
         private static void OnPlayerBadEffect()
         {
             var useUniversalPill = PlayerConfig.Get<bool>("RSBot.Protection.checkUseUniversalPills", true);
+            if (!useUniversalPill)
+                return;
 
-            if (useUniversalPill)
+            if ((Game.Player.BadEffect & BadEffectAll.UniversallPillEffects) != 0)
                 Game.Player.UseUniversalPill();
+
+            if ((Game.Player.BadEffect & BadEffectAll.PurificationPillEffects) != 0)
+                Game.Player.UsePurificationPill();
         }
     }
 }

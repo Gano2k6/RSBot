@@ -1,8 +1,4 @@
-﻿using RSBot.Core.Extensions;
-using System.Drawing;
-using System.IO;
-
-namespace RSBot.Core.Client.ReferenceObjects
+﻿namespace RSBot.Core.Client.ReferenceObjects
 {
     public class RefObjItem : RefObjCommon
     {
@@ -25,39 +21,144 @@ namespace RSBot.Core.Client.ReferenceObjects
         public string Desc4;
 
         /// <summary>
-        /// Is item wearable:<c>true</c> otherwise:<c>false</c>
-        /// </summary>
-        public bool IsEquip => TypeID2 == 1;
-
-        /// <summary>
-        /// Is item wearable for jobbing:<c>true</c> otherwise:<c>false</c>
-        /// </summary>
-        public bool IsJobEquip => TypeID2 == 1 && TypeID3 == 7;
-
-        /// <summary>
-        /// Is item type stackable:<c>true</c> otherwise:<c>false</c>
-        /// </summary>
-        public bool IsStackable => TypeID2 == 3;
-
-        /// <summary>
-        /// Is item type gold:<c>true</c> otherwise:<c>false</c>
+        /// A value indicating if the item is of type gold
         /// </summary>
         public bool IsGold => IsStackable && TypeID3 == 5 && TypeID4 == 0;
 
         /// <summary>
-        /// Is item type trading(job trading items):<c>true</c> otherwise:<c>false</c>
+        /// A value indicating if the item is of type wearable
+        /// </summary>
+        public bool IsEquip => TypeID2 == 1;
+
+        /// <summary>
+        /// A value indicating if the item is of type wearable for job2 (job2 part items)
+        /// </summary>
+        public bool IsJobEquip => TypeID2 == 4;
+
+        /// <summary>
+        /// A value indicating if the item is of type weareable for fellow pet
+        /// </summary>
+        public bool IsFellowEquip => TypeID2 == 5;
+
+        /// <summary>
+        /// A value indicating if the item is of type wearable for job
+        /// </summary>
+        public bool IsJobOutfit => TypeID2 == 1 && TypeID3 == 7;
+
+        /// <summary>
+        /// A value indicating if the item is of type stackable
+        /// </summary>
+        public bool IsStackable => TypeID2 == 3;
+
+        /// <summary>
+        /// A value indicating if the item is of type trading(job trading items)
         /// </summary>
         public bool IsTrading => IsStackable && TypeID3 == 8;
 
         /// <summary>
-        /// Is item type quest:<c>true</c> otherwise:<c>false</c>
+        /// A value indicating if the item is of type specialty good box
+        /// </summary>
+        public bool IsSpecialtyGoodBox => IsTrading && TypeID4 == 3;
+
+        /// <summary>
+        /// A value indicating if the item is of type trans quest
         /// </summary>
         public bool IsQuest => IsStackable && TypeID3 == 9;
 
         /// <summary>
-        /// Is item type quest:<c>true</c> otherwise:<c>false</c>
+        /// A value indicating if the item is of type ammunition
         /// </summary>
-        public bool IsSkillItem => IsStackable && TypeID3 == 13 && TypeID4 == 1;
+        public bool IsAmmunition => IsStackable && TypeID3 == 4;
+
+        /// <summary>
+        /// A value indicating if the item is of type cos
+        /// </summary>
+        public bool IsPet => TypeID2 == 2 && TypeID3 == 1;
+
+        /// <summary>
+        /// A value indicating if the item is of type cos
+        /// </summary>
+        public bool IsGrowthPet => IsPet && TypeID4 == 1;
+
+        /// <summary>
+        /// A value indicating if the item is of type cos
+        /// </summary>
+        public bool IsGrabPet => IsPet && TypeID4 == 2;
+
+        /// <summary>
+        /// A value indicating if the item is of type cos
+        /// </summary>
+        public bool IsFellowPet => IsPet && TypeID4 == 3;
+
+        /// <summary>
+        /// A value indicating if the item is of type trans monster
+        /// </summary>
+        public bool IsTransmonster => TypeID2 == 2 && TypeID3 == 2;
+
+        /// <summary>
+        /// A value indicating if the item is of type ammunition
+        /// </summary>
+        public bool IsMagicCube => TypeID2 == 2 && TypeID3 == 3;
+
+        /// <summary>
+        /// A value indicating if the item is of type skill item
+        /// </summary>
+        public bool IsSkill => IsStackable && TypeID3 == 13 && TypeID4 == 1;
+
+        /// <summary>
+        /// A value indicating if the item is of type potion
+        /// </summary>
+        public bool IsPotion => IsStackable && TypeID3 == 1;
+
+        /// <summary>
+        /// A value indicating if the item is of type hp potion
+        /// </summary>
+        public bool IsHpPotion => IsPotion && TypeID4 == 1;
+
+        /// <summary>
+        /// A value indicating if the item is of type mp potion
+        /// </summary>
+        public bool IsMpPotion => IsPotion && TypeID4 == 2;
+
+        /// <summary>
+        /// A value indicating if the item is of type all potion(vigor)
+        /// </summary>
+        public bool IsAllPotion => IsPotion && TypeID4 == 3;
+
+        /// <summary>
+        /// A value indicating if the item is of type cos hp potion
+        /// </summary>
+        public bool IsCosHpPotion => IsPotion && TypeID4 == 4 && Param2 == 0;
+
+        /// <summary>
+        /// A value indicating if the item is of type cos hp potion
+        /// </summary>
+        public bool IsFellowHpPotion => IsPotion && TypeID4 == 4 && Param2 != 0;
+
+        /// <summary>
+        /// A value indicating if the item is of type cos revival
+        /// </summary>
+        public bool IsCosRevivalPotion => IsPotion && TypeID4 == 6;
+
+        /// <summary>
+        /// A value indicating if the item is of type hwan potion
+        /// </summary>
+        public bool IsHwanPotion => IsPotion && TypeID4 == 8;
+
+        /// <summary>
+        /// A value indicating if the item is of type hgp potion
+        /// </summary>
+        public bool IsHgpPotion => IsPotion && TypeID4 == 9 && Param1 == 10;
+
+        /// <summary>
+        /// A value indicating if the item is of type pet2 satiety potion
+        /// </summary>
+        public bool IsPet2SatietyPotion => IsPotion && TypeID4 == 9 && Param1 > 10;
+
+        /// <summary>
+        /// A value indicating if the item is of type repair kit
+        /// </summary>
+        public bool IsRepairKit => IsPotion && TypeID4 == 10;
 
         /// <summary>
         /// Gets the degree of the item
@@ -74,23 +175,23 @@ namespace RSBot.Core.Client.ReferenceObjects
             if (!base.Load(parser))
                 return false;
 
-            parser.TryParseInt(57, out MaxStack);
-            parser.TryParseByte(58, out ReqGender);
-            parser.TryParseInt(59, out ReqStr);
-            parser.TryParseInt(60, out ReqInt);
-            parser.TryParseByte(61, out ItemClass);
-            parser.TryParseByte(86, out Quivered);
-            parser.TryParseByte(92, out SpeedClass);
-            parser.TryParseByte(93, out TwoHanded);
-            parser.TryParseShort(94, out Range);
-            parser.TryParseInt(118, out Param1);
-            parser.TryParseString(119, out Desc1);
-            parser.TryParseInt(120, out Param2);
-            parser.TryParseString(121, out Desc2);
-            parser.TryParseInt(122, out Param3);
-            parser.TryParseString(123, out Desc3);
-            parser.TryParseInt(124, out Param4);
-            parser.TryParseString(125, out Desc4);
+            parser.TryParse(57, out MaxStack);
+            parser.TryParse(58, out ReqGender);
+            parser.TryParse(59, out ReqStr);
+            parser.TryParse(60, out ReqInt);
+            parser.TryParse(61, out ItemClass);
+            parser.TryParse(86, out Quivered);
+            parser.TryParse(92, out SpeedClass);
+            parser.TryParse(93, out TwoHanded);
+            parser.TryParse(94, out Range);
+            parser.TryParse(118, out Param1);
+            parser.TryParse(119, out Desc1);
+            parser.TryParse(120, out Param2);
+            parser.TryParse(121, out Desc2);
+            parser.TryParse(122, out Param3);
+            parser.TryParse(123, out Desc3);
+            parser.TryParse(124, out Param4);
+            parser.TryParse(125, out Desc4);
 
             return true;
         }
@@ -101,6 +202,9 @@ namespace RSBot.Core.Client.ReferenceObjects
         /// <returns></returns>
         public string GetRarityName()
         {
+            if (Rarity < ObjectRarity.ClassC)
+                return string.Empty;
+
             string param = null;
             if (ItemClass < 31 || ItemClass > 34)
             {
@@ -133,38 +237,14 @@ namespace RSBot.Core.Client.ReferenceObjects
         {
             var baseName = base.GetRealName(displayRarity);
 
-            if (!displayRarity || Rarity < ObjectRarity.ClassC)
+            if (!displayRarity)
                 return baseName;
 
-            
+            var rarityName = GetRarityName();
+            if (string.IsNullOrWhiteSpace(rarityName))
+                return baseName;
 
-            return $"{baseName} ({GetRarityName()})";
-        }
-
-        /// <summary>
-        /// Gets the icon.
-        /// </summary>
-        /// <returns></returns>
-        public Image GetIcon()
-        {
-            try
-            {
-                Image bitmap;
-                var file = Game.MediaPk2.GetFile(Path.Combine("icon", this.AssocFileIcon), true);
-                if (file.IsValid)
-                    bitmap = file.ToImage();
-                else
-                    bitmap = Game.MediaPk2.GetFile("icon\\icon_default.ddj").ToImage();
-
-                if (bitmap == null)
-                    bitmap = new Bitmap(24, 24);
-
-                return bitmap;
-            }
-            catch //DDS convert failed
-            {
-                return new Bitmap(24, 24);
-            }
+            return $"{baseName} ({rarityName})";
         }
 
         public override string ToString()

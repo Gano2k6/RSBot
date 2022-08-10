@@ -12,7 +12,7 @@ namespace RSBot.Core
 
     public class LanguageManager
     {
-        private static string _path = Path.Combine(Environment.CurrentDirectory, "Languages");
+        private static string _path = Path.Combine(Environment.CurrentDirectory, "Data", "Languages");
 
         /// <summary>
         /// Parsed language values
@@ -57,7 +57,7 @@ namespace RSBot.Core
             {
                 if (c == '=')
                 {
-                    key = builder.ToString();
+                    key = builder.ToString().Trim();
                     builder = new StringBuilder();
                     value = string.Empty;
 
@@ -76,7 +76,7 @@ namespace RSBot.Core
                     if (skipDoubleQuotes)
                         continue;
 
-                    value = builder.ToString();
+                    value = builder.ToString();/*.Trim()*/
                     builder.Clear();
 
                     languages[key] = value;
@@ -103,7 +103,7 @@ namespace RSBot.Core
         /// <param name="file">The language file path</param>
         /// <param name="controls">The controls</param>
         /// <param name="languages">the parsed languages list</param>
-        private static void CheckMissings(string file, string header, Control main, Dictionary<string, string> languages)
+        private static void CheckMissings(string file, string header, Control main, LangDict languages)
         {
             var contents = new List<string>();
 
@@ -169,13 +169,17 @@ namespace RSBot.Core
         public static string GetLang(string key)
         {
             var trace = new StackTrace();
-            var module = Path.GetFileNameWithoutExtension(trace.GetFrame(1).GetMethod().Module.Name);
 
-            if(module == "RSBot.Core")
-                module = Path.GetFileNameWithoutExtension(trace.GetFrame(2).GetMethod().Module.Name);
+            var parent = string.Empty;
+            for (int i = 0; i < trace.FrameCount; i++)
+            {
+                parent = Path.GetFileNameWithoutExtension(trace.GetFrame(i).GetMethod().Module.Name);
+                if (parent != "RSBot.Core")
+                    break;
+            }
 
-            if (_values.ContainsKey(module) && _values[module].ContainsKey(key))
-                return _values[module][key];
+            if (_values.ContainsKey(parent) && _values[parent].ContainsKey(key))
+                return _values[parent][key];
             
             return string.Empty;
         }
@@ -190,11 +194,24 @@ namespace RSBot.Core
         }
 
         /// <summary>
+        /// Get language value
+        /// </summary>
+        /// <param name="key">The key</param>
+        /// <param name="default">The default value that will be returned if the translation could not be found</param>
+        public static string GetLangBySpecificKey(string parent, string key, string @default = "")
+        {
+            if (_values.ContainsKey(parent) && _values[parent].ContainsKey(key))
+                return _values[parent][key];
+
+            return @default;
+        }
+
+        /// <summary>
         /// Translate the control
         /// </summary>
         /// <param name="view">The control view</param>
         /// <param name="file">The language file path</param>
-        public static void Translate(Control view, string language = "English")
+        public static void Translate(Control view, string language = "en_US")
         {
             var type = view.GetType();
 
@@ -202,9 +219,10 @@ namespace RSBot.Core
             var assembly = type.Assembly.GetName().Name;
 
             var path = Path.Combine(_path, assembly, language + ".rsl");
+            var dir = Path.GetDirectoryName(path);
 
-            if (!Directory.Exists(path))
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(Path.GetDirectoryName(dir));
 
             var stopwatch = Stopwatch.StartNew();
 
@@ -221,8 +239,6 @@ namespace RSBot.Core
             _values[assembly] = values;
 
             TranslateControls(values, view, assembly);
-
-            Debug.WriteLine($"Translate control finished: {stopwatch.ElapsedMilliseconds} ms");
         }
 
         private static void TranslateControls(LangDict values, Control view, string header)
@@ -255,7 +271,7 @@ namespace RSBot.Core
             }
         }
 
-        public static string[] GetLanguages()
+        public static Dictionary<string, string> GetLanguages()
         {
             var filePath = Path.Combine(_path, "langs.rsl");
             if (!File.Exists(filePath))
@@ -264,7 +280,8 @@ namespace RSBot.Core
                 Environment.Exit(0);
             }
 
-            return File.ReadAllLines(filePath);
+            return File.ReadAllLines(filePath)
+                .ToDictionary(p => p.Split(':')[0], p => p.Split(':')[1]);
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using RSBot.Core;
 using RSBot.Core.Network;
-using RSBot.Theme.Extensions;
+using SDUI.Extensions;
+using System.Windows.Forms;
 
 namespace RSBot.Chat.Network
 {
@@ -29,6 +30,8 @@ namespace RSBot.Chat.Network
         public void Invoke(Packet packet)
         {
             var noticeType = packet.ReadByte();
+            if (Game.ClientType > GameClientType.Thailand)
+                packet.ReadByte();
 
             switch (noticeType)
             {

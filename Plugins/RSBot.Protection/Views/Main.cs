@@ -3,7 +3,10 @@ using RSBot.Core.Event;
 using RSBot.Core.Objects.Skill;
 using System;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using RSBot.Protection.Components.Player;
 
 namespace RSBot.Protection.Views
 {
@@ -14,7 +17,7 @@ namespace RSBot.Protection.Views
 
         private bool _settingsLoaded;
         private bool _skillSettingsLoaded;
-
+        private bool _statIncreaseRunning;
         #endregion Fields
 
         public Main()
@@ -30,7 +33,12 @@ namespace RSBot.Protection.Views
         {
             EventManager.SubscribeEvent("OnEnterGame", OnEnterGame);
             EventManager.SubscribeEvent("OnLoadCharacter", OnLoadCharacter);
-            EventManager.SubscribeEvent("OnLearnSkill", new Action<SkillInfo, bool>(OnLearnSkill));
+
+            EventManager.SubscribeEvent("OnSkillLearned", new Action<SkillInfo>(OnSkillLearned));
+            EventManager.SubscribeEvent("OnSkillUpgraded", new Action<SkillInfo, SkillInfo>(OnSkillUpgraded));
+
+            EventManager.SubscribeEvent("OnIncreaseStrength", OnIncreaseStat);
+            EventManager.SubscribeEvent("OnIncreaseIntelligence", OnIncreaseStat);
         }
 
         /// <summary>
@@ -40,26 +48,32 @@ namespace RSBot.Protection.Views
         {
             const string key = "RSBot.Protection.";
 
-            foreach (var checkbox in groupHPMP.Controls.OfType<CheckBox>().Select(control => control))
+            foreach (var checkbox in groupHPMP.Controls.OfType<SDUI.Controls.CheckBox>())
                 checkbox.Checked = PlayerConfig.Get<bool>(key + checkbox.Name);
 
-            foreach (var num in groupHPMP.Controls.OfType<NumericUpDown>().Select(control => control))
+            foreach (var num in groupHPMP.Controls.OfType<NumericUpDown>())
                 num.Value = PlayerConfig.Get<int>(key + num.Name, 50);
 
-            foreach (var checkbox in groupBadStatus.Controls.OfType<CheckBox>().Select(control => control))
+            foreach (var checkbox in groupBadStatus.Controls.OfType<SDUI.Controls.CheckBox>())
                 checkbox.Checked = PlayerConfig.Get<bool>(key + checkbox.Name);
 
-            foreach (var checkbox in groupPet.Controls.OfType<CheckBox>().Select(control => control))
+            foreach (var checkbox in groupPet.Controls.OfType<SDUI.Controls.CheckBox>())
                 checkbox.Checked = PlayerConfig.Get<bool>(key + checkbox.Name);
 
-            foreach (var num in groupPet.Controls.OfType<NumericUpDown>().Select(control => control))
+            foreach (var num in groupPet.Controls.OfType<NumericUpDown>())
                 num.Value = PlayerConfig.Get<int>(key + num.Name, 50);
 
-            foreach (var checkbox in groupBackTown.Controls.OfType<CheckBox>().Select(control => control))
+            foreach (var checkbox in groupBackTown.Controls.OfType<SDUI.Controls.CheckBox>())
                 checkbox.Checked = PlayerConfig.Get<bool>(key + checkbox.Name);
 
-            foreach (var num in groupBackTown.Controls.OfType<NumericUpDown>().Select(control => control))
+            foreach (var num in groupBackTown.Controls.OfType<NumericUpDown>())
                 num.Value = PlayerConfig.Get<int>(key + num.Name, 50);
+
+            foreach (var checkbox in groupStatPoints.Controls.OfType<SDUI.Controls.CheckBox>())
+                checkbox.Checked = PlayerConfig.Get<bool>(key + checkbox.Name);
+
+            foreach (var num in groupStatPoints.Controls.OfType<NumericUpDown>())
+                num.Value = PlayerConfig.Get<int>(key + num.Name, 0);
         }
 
         /// <summary>
@@ -68,44 +82,48 @@ namespace RSBot.Protection.Views
         private void ApplySettings()
         {
             const string key = "RSBot.Protection.";
-            foreach (var checkbox in groupHPMP.Controls.OfType<CheckBox>().Select(control => control))
+            foreach (var checkbox in groupHPMP.Controls.OfType<SDUI.Controls.CheckBox>())
                 PlayerConfig.Set(key + checkbox.Name, checkbox.Checked);
 
-            foreach (var num in groupHPMP.Controls.OfType<NumericUpDown>().Select(control => control))
+            foreach (var num in groupHPMP.Controls.OfType<NumericUpDown>())
                 PlayerConfig.Set(key + num.Name, num.Value);
 
-            foreach (var checkbox in groupBadStatus.Controls.OfType<CheckBox>().Select(control => control))
+            foreach (var checkbox in groupBadStatus.Controls.OfType<SDUI.Controls.CheckBox>())
                 PlayerConfig.Set(key + checkbox.Name, checkbox.Checked);
 
-            foreach (var checkbox in groupPet.Controls.OfType<CheckBox>().Select(control => control))
+            foreach (var checkbox in groupPet.Controls.OfType<SDUI.Controls.CheckBox>())
                 PlayerConfig.Set(key + checkbox.Name, checkbox.Checked);
 
-            foreach (var num in groupPet.Controls.OfType<NumericUpDown>().Select(control => control))
+            foreach (var num in groupPet.Controls.OfType<NumericUpDown>())
                 PlayerConfig.Set(key + num.Name, num.Value);
 
-            foreach (var checkbox in groupBackTown.Controls.OfType<CheckBox>().Select(control => control))
+            foreach (var checkbox in groupBackTown.Controls.OfType<SDUI.Controls.CheckBox>())
                 PlayerConfig.Set(key + checkbox.Name, checkbox.Checked);
 
-            foreach (var num in groupBackTown.Controls.OfType<NumericUpDown>().Select(control => control))
+            foreach (var num in groupBackTown.Controls.OfType<NumericUpDown>())
                 PlayerConfig.Set(key + num.Name, num.Value);
 
-            ISkillDataInfo skillPlayerHp = null;
+            foreach (var checkbox in groupStatPoints.Controls.OfType<SDUI.Controls.CheckBox>())
+                PlayerConfig.Set(key + checkbox.Name, checkbox.Checked);
+
+            foreach (var num in groupStatPoints.Controls.OfType<NumericUpDown>())
+                PlayerConfig.Set(key + num.Name, num.Value);
+
+            SkillInfo skill = null;
             if (comboSkillPlayerHP.SelectedIndex > 0)
-                skillPlayerHp = comboSkillPlayerHP.SelectedItem as ISkillDataInfo;
+                skill = comboSkillPlayerHP.SelectedItem as SkillInfo;
 
-            PlayerConfig.Set(key + "HpSkill", skillPlayerHp == null ? 0 : skillPlayerHp.Id);
+            PlayerConfig.Set(key + "HpSkill", skill == null ? 0 : skill.Id);
 
-            ISkillDataInfo skillPlayerMp = null;
             if (comboSkillPlayerMP.SelectedIndex > 0)
-                skillPlayerHp = comboSkillPlayerMP.SelectedItem as ISkillDataInfo;
+                skill = comboSkillPlayerMP.SelectedItem as SkillInfo;
 
-            PlayerConfig.Set(key + "MpSkill", skillPlayerMp == null ? 0 : skillPlayerMp.Id);
+            PlayerConfig.Set(key + "MpSkill", skill == null ? 0 : skill.Id);
 
-            ISkillDataInfo skillPlayerBadStatus = null;
             if (comboSkillBadStatus.SelectedIndex > 0)
-                skillPlayerHp = comboSkillBadStatus.SelectedItem as ISkillDataInfo;
+                skill = comboSkillBadStatus.SelectedItem as SkillInfo;
 
-            PlayerConfig.Set(key + "BadStatusSkill", skillPlayerBadStatus == null ? 0 : skillPlayerBadStatus.Id);
+            PlayerConfig.Set(key + "BadStatusSkill", skill == null ? 0 : skill.Id);
         }
 
         /// <summary>
@@ -125,10 +143,10 @@ namespace RSBot.Protection.Views
 
             foreach (var skill in Game.Player.Skills.KnownSkills)
             {
-                if (!skill.Enabled) 
+                if (!skill.Enabled)
                     continue;
 
-                if (skill.IsPassive) 
+                if (skill.IsPassive)
                     continue;
 
                 if (skill.Record.Target_Required && !skill.Record.TargetGroup_Self)
@@ -137,7 +155,7 @@ namespace RSBot.Protection.Views
                 // TODO: Check is the cure skill?
                 var badStatusIndex = comboSkillBadStatus.Items.Add(skill);
                 var badStatusSkillId = PlayerConfig.Get<uint>("RSBot.Protection.BadStatusSkill");
-                if(badStatusSkillId == skill.Id)
+                if (badStatusSkillId == skill.Id)
                     comboSkillBadStatus.SelectedIndex = badStatusIndex;
 
                 // TODO: Check is the hp skill?
@@ -200,12 +218,21 @@ namespace RSBot.Protection.Views
         }
 
         /// <summary>
+        /// Call after skill learned
         /// </summary>
-        /// <param name="skill">The skill.</param>
-        /// <param name="update">if set to <c>true</c> [update].</param>
-        private void OnLearnSkill(SkillInfo skill, bool update)
+        /// <param name="skill">The learned skill.</param>
+        private void OnSkillLearned(SkillInfo skill)
         {
             RefreshSkills();
+        }
+
+        /// <summary>
+        /// Call after skill learned
+        /// </summary>
+        /// <param name="skill">The learned skill.</param>
+        private void OnSkillUpgraded(SkillInfo oldSkill, SkillInfo newSkill)
+        {
+            // TODO: Update old skill ids in config
         }
 
         /// <summary>
@@ -213,6 +240,75 @@ namespace RSBot.Protection.Views
         private void OnLoadCharacter()
         {
             RefreshSkills();
+        }
+
+        /// <summary>
+        /// Re-calculates the max points of the Str numeric
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void numIncInt_ValueChanged(object sender, EventArgs e)
+        {
+            numIncStr.Maximum = 3 - numIncInt.Value;
+
+            PlayerConfig.Set("RSBot.Protection.numIncInt", numIncInt.Value);
+        }
+
+        /// <summary>
+        /// Re-calculates the max points of the Int numeric
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void numIncStr_ValueChanged(object sender, EventArgs e)
+        {
+            numIncInt.Maximum = 3 - numIncStr.Value;
+
+            PlayerConfig.Set("RSBot.Protection.numIncStr", numIncStr.Value);
+        }
+
+        private void OnIncreaseStat()
+        {
+            if (Game.Player.StatPoints < numIncInt.Value + numIncStr.Value) 
+            {
+                buttonRun.Text = "Run";
+
+                _statIncreaseRunning = false;
+            }
+        }
+
+        private void buttonRun_Click(object sender, EventArgs e)
+        {
+            if (_statIncreaseRunning)
+            {
+                buttonRun.Text = "Run";
+
+                _statIncreaseRunning = false;
+
+                StatPointsHandler.CancellationRequested = true;
+
+                return;
+            }
+
+            StatPointsHandler.CancellationRequested = false;
+            var stepSize = numIncInt.Value + numIncStr.Value;
+
+            if (stepSize == 0) return;
+            //Only run if at least 3 stat points can be increased
+            if (Game.Player.StatPoints < stepSize)
+                return;
+
+            var availableSteps = Math.Floor(Game.Player.StatPoints / stepSize);
+
+            if (Game.Player.StatPoints == stepSize)
+                availableSteps = 1;
+
+            if (availableSteps == 0) return;
+
+            Task.Run(() => StatPointsHandler.IncreaseStatPoints((int) availableSteps));
+            
+            _statIncreaseRunning = true;
+
+            buttonRun.Text = "Cancel";
         }
     }
 }

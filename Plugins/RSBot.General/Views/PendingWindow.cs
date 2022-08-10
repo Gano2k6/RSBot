@@ -1,7 +1,7 @@
 ﻿using RSBot.Core;
 using RSBot.Core.Network;
 using RSBot.General.Components;
-using RSBot.Theme.Controls;
+using SDUI.Controls;
 using System;
 using System.Text;
 using System.Windows.Forms;
@@ -19,6 +19,7 @@ namespace RSBot.General.Views
         {
             InitializeComponent();
             CheckForIllegalCrossThreadCalls = false;
+            Text = "Pending";
         }
 
         internal void Update(Packet packet)
@@ -36,7 +37,7 @@ namespace RSBot.General.Views
 
         internal void Start(int count, int timestamp)
         {
-            _startedTick = Environment.TickCount;
+            _startedTick = Kernel.TickCount;
 
             labelPending.Text = $"{count} / {count}";
             labelServerName.Text = labelServerName.Text.Replace("{SERVER}", Serverlist.Joining?.Name);
@@ -47,10 +48,10 @@ namespace RSBot.General.Views
 
         private void timer_Tick(object sender, EventArgs e)
         {
-            PrintTime(labelMyWaitingTime, Environment.TickCount - _startedTick);
+            PrintTime(labelMyWaitingTime, Kernel.TickCount - _startedTick);
         }
 
-        private void PrintTime(Label label, int millisecond)
+        private void PrintTime(SDUI.Controls.Label label, int millisecond)
         {
             var text = new StringBuilder();
 
@@ -74,6 +75,10 @@ namespace RSBot.General.Views
         private void buttonCancel_Click(object sender, EventArgs e)
         {
             PacketManager.SendPacket(new Packet(0x610F, false, false, new byte[] { 0x1 }), PacketDestination.Server);
+        }
+
+        private void PendingWindow_FormClosing(object sender, FormClosingEventArgs e)
+        {
             timer.Enabled = false;
         }
     }

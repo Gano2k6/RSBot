@@ -40,12 +40,12 @@ namespace RSBot.Core.Network.Handler.Agent.Teleport
 
             var destination = packet.ReadUInt();
 
-            if (!SpawnManager.TryGetEntity<SpawnedPortal>(teleporterUniqueId, out var portal))
+            if (!SpawnManager.TryGetEntity<SpawnedBionic>(teleporterUniqueId, out var portal))
                 return;
 
-            Core.Game.Player.Teleportation = new Teleportation
+            Game.Player.Teleportation = new Teleportation
             {
-                Destination = Core.Game.ReferenceManager.TeleportData.FirstOrDefault(t => t.ID == destination),
+                Destination = Game.ReferenceManager.TeleportData.FirstOrDefault(t => t.ID == destination),
             };
 
             EventManager.FireEvent("OnRequestTeleport", destination, portal.Record.CodeName);

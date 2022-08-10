@@ -1,8 +1,13 @@
 ﻿using RSBot.Core;
 using RSBot.Core.Components;
+using RSBot.Core.Components.Scripting;
 using RSBot.Core.Event;
-using RSBot.Theme.Controls;
+using RSBot.Core.Objects;
+using RSBot.Core.Objects.Spawn;
+using RSBot.Views.Dialog;
+using SDUI.Controls;
 using System;
+using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -10,6 +15,18 @@ namespace RSBot.Views
 {
     public partial class ScriptRecorder : CleanForm
     {
+        private class CommandComboBoxItem
+        {
+            public IScriptCommand Command { get; }
+
+            public CommandComboBoxItem(IScriptCommand command)
+            {
+                Command = command;
+            }
+
+            public override string ToString() => Command.Name;
+        }
+
         private bool _recording;
         private bool _running;
 
@@ -20,6 +37,16 @@ namespace RSBot.Views
         {
             InitializeComponent();
             SubscribeEvents();
+            PopulateCommandList();
+        }
+
+        /// <summary>
+        /// Populates the command list.
+        /// </summary>
+        private void PopulateCommandList()
+        {
+            foreach (var command in ScriptManager.CommandHandlers)
+                comboCommand.Items.Add(new CommandComboBoxItem(command));
         }
 
         /// <summary>
@@ -31,6 +58,127 @@ namespace RSBot.Views
             EventManager.SubscribeEvent("OnRequestTeleport", new Action<uint, string>(OnRequestTeleport));
             EventManager.SubscribeEvent("OnTerminateVehicle", OnTerminateVehicle);
             EventManager.SubscribeEvent("OnTeleportComplete", OnTeleportComplete);
+            EventManager.SubscribeEvent("OnScriptStartExecuteCommand", new Action<IScriptCommand, int>(OnScriptStartExecuteCommand));
+            EventManager.SubscribeEvent("OnNpcRepairRequest", new Action<uint, byte, byte>(OnNpcRepairRequest));
+            EventManager.SubscribeEvent("OnStorageOpenRequest", new Action<uint>(StorageOpenRequest));
+            EventManager.SubscribeEvent("OnTalkRequest", new Action<uint, TalkOption>(OnTalkRequest));
+            EventManager.SubscribeEvent("OnFinishScript", OnFinishScript);
+            EventManager.SubscribeEvent("OnCastSkill", new Action<uint>(OnCastSkill));
+
+            EventManager.SubscribeEvent("OnBuyItemRequest", new Action<byte, byte, ushort, uint>(OnBuyItemRequest));
+            EventManager.SubscribeEvent("OnSellItemRequest", new Action<byte, ushort, uint>(OnSellItemRequest));
+            EventManager.SubscribeEvent("OnBuyItemToCosRequest", new Action<byte, byte, ushort, uint>(OnBuyItemToCos));
+            EventManager.SubscribeEvent("OnSellItemFromCosRequest", new Action<byte, ushort, uint>(OnSellItemFromCos));
+
+            //Use EventManager.FireEvent("AppendScriptCommand", "<name> <parameters>"); to add your own commands to the output
+            EventManager.SubscribeEvent("AppendScriptCommand", new Action<string>(AppendScriptCommand));
+        }
+
+        private void OnCastSkill(uint skillId)
+        {
+            if (!_recording)
+                return;
+
+            txtScript.AppendText($"cast {Game.ReferenceManager.GetRefSkill(skillId).Basic_Code}\n");
+        }
+
+        /// <summary>
+        /// Appends the script command fired from a plugin.
+        /// </summary>
+        /// <param name="command">The command.</param>
+        private void AppendScriptCommand(string command)
+        {
+            if (!_recording)
+                return;
+
+            txtScript.AppendText(command + Environment.NewLine);
+        }
+
+        /// <summary>
+        /// Highlights the line at the specified index.
+        /// </summary>
+        /// <param name="index">The index.</param>
+        /// <param name="color">The color.</param>
+        private void HighlightLine(int index, Color color)
+        {
+            txtScript.SelectAll();
+            txtScript.SelectionBackColor = txtScript.BackColor;
+            var lines = txtScript.Lines;
+            if (index < 0 || index >= lines.Length)
+                return;
+            var start = txtScript.GetFirstCharIndexFromLine(index);  // Get the 1st char index of the appended text
+            var length = lines[index].Length;
+            txtScript.Select(start, length);                 // Select from there to the end
+            txtScript.SelectionBackColor = color;
+        }
+
+        #region Events
+
+        private void OnFinishScript()
+        {
+            if (_running)
+            {
+                btnRun.Text = "▶";
+                labelStatus.Text = LanguageManager.GetLang("Idle");
+                _running = false;
+            }
+            else
+            {
+                labelStatus.Text = LanguageManager.GetLang("StopRunning");
+
+                btnRun.Text = "⏹";
+                _running = true;
+            }
+        }
+
+        private void OnTalkRequest(uint entityId, TalkOption option)
+        {
+            if (!_recording)
+                return;
+
+            if (!SpawnManager.TryGetEntity<SpawnedBionic>(entityId, out var entity))
+                return;
+
+            switch (option)
+            {
+                case TalkOption.Store:
+                    txtScript.AppendText($"buy {entity.Record.CodeName}\n");
+                    break;
+
+                case TalkOption.Trader:
+                    txtScript.AppendText($"open-trade {entity.Record.CodeName}\n");
+                    break;
+            }
+        }
+
+        private void StorageOpenRequest(uint entityId)
+        {
+            if (!_recording)
+                return;
+
+            if (!SpawnManager.TryGetEntity<SpawnedBionic>(entityId, out var entity))
+                return;
+
+            txtScript.AppendText($"store {entity.Record.CodeName}\n");
+        }
+
+        private void OnNpcRepairRequest(uint entityId, byte type, byte slot)
+        {
+            if (!_recording) return;
+
+            if (!SpawnManager.TryGetEntity<SpawnedBionic>(entityId, out var entity))
+                return;
+
+            txtScript.AppendText($"repair {entity.Record.CodeName}\n");
+        }
+
+        private void OnScriptStartExecuteCommand(IScriptCommand command, int lineNumber)
+        {
+            if (!ScriptManager.Running) 
+                return;
+
+            if (txtScript.Text.Split('\n').Length >= lineNumber)
+                HighlightLine(lineNumber != 0 ? lineNumber + 1 : 0, Color.CornflowerBlue);
         }
 
         /// <summary>
@@ -38,11 +186,13 @@ namespace RSBot.Views
         /// </summary>
         private void OnPlayerMove()
         {
-            if (!_recording) return;
+            if (!_recording)
+                return;
+
             var stepString = new System.Text.StringBuilder();
-            stepString.Append($"move {Game.Player.Movement.Destination.XOffset}");
-            stepString.Append($" {Game.Player.Movement.Destination.YOffset}");
-            stepString.Append($" {Game.Player.Movement.Destination.ZOffset}");
+            stepString.Append($"move {Math.Round(Game.Player.Movement.Destination.XOffset, MidpointRounding.AwayFromZero)}");
+            stepString.Append($" {Math.Round(Game.Player.Movement.Destination.YOffset, MidpointRounding.AwayFromZero)}");
+            stepString.Append($" {Math.Round(Game.Player.Movement.Destination.ZOffset, MidpointRounding.AwayFromZero)}");
             stepString.Append($" {Game.Player.Movement.Destination.XSector}");
             stepString.Append($" {Game.Player.Movement.Destination.YSector}");
             stepString.AppendLine();
@@ -56,7 +206,8 @@ namespace RSBot.Views
         /// <param name="npcCodeName">Name of the NPC code.</param>
         private void OnRequestTeleport(uint destination, string npcCodeName)
         {
-            if (!_recording) return;
+            if (!_recording) 
+                return;
 
             txtScript.AppendText($"teleport {npcCodeName} {destination}\n");
         }
@@ -66,9 +217,64 @@ namespace RSBot.Views
         /// </summary>
         private void OnTerminateVehicle()
         {
-            if (!_recording) return;
+            if (!_recording) 
+                return;
 
             txtScript.AppendText("dismount\n");
+        }
+
+        /// <summary>
+        /// On buy item for job transport
+        /// </summary>
+        /// <param name="tab">The tab</param>
+        /// <param name="index">The item index</param>
+        /// <param name="quantity">The item quantity</param>
+        /// <param name="npcUniqueId">The npc unique id</param>
+        private void OnBuyItemToCos(byte tab, byte index, ushort quantity, uint npcUniqueId)
+        {
+            if (!SpawnManager.TryGetEntity<SpawnedBionic>(npcUniqueId, out var entity))
+                return;
+
+        }
+
+        /// <summary>
+        /// On sell item from job transport
+        /// </summary>
+        /// <param name="slot">The inventory item slot</param>
+        /// <param name="quantity">The item quantity</param>
+        /// <param name="npcUniqueId">The npc unique id</param>
+        private void OnSellItemFromCos(byte slot, ushort quantity, uint npcUniqueId)
+        {
+            if (!SpawnManager.TryGetEntity<SpawnedBionic>(npcUniqueId, out var entity))
+                return;
+
+        }
+
+        /// <summary>
+        /// On buy item for job transport
+        /// </summary>
+        /// <param name="tab">The tab</param>
+        /// <param name="index">The item index</param>
+        /// <param name="quantity">The item quantity</param>
+        /// <param name="npcUniqueId">The npc unique id</param>
+        private void OnBuyItemRequest(byte tab, byte index, ushort quantity, uint npcUniqueId)
+        {
+            if (!SpawnManager.TryGetEntity<SpawnedBionic>(npcUniqueId, out var entity))
+                return;
+
+        }
+
+        /// <summary>
+        /// On sell item from job transport
+        /// </summary>
+        /// <param name="slot">The inventory item slot</param>
+        /// <param name="quantity">The item quantity</param>
+        /// <param name="npcUniqueId">The npc unique id</param>
+        private void OnSellItemRequest(byte slot, ushort quantity, uint npcUniqueId)
+        {
+            if (!SpawnManager.TryGetEntity<SpawnedBionic>(npcUniqueId, out var entity))
+                return;
+
         }
 
         private void OnTeleportComplete()
@@ -90,15 +296,21 @@ namespace RSBot.Views
 
             if (_recording)
             {
-                btnStart.Text = LanguageManager.GetLang("Start");
+                btnStartStop.Text = LanguageManager.GetLang("Start");
                 labelStatus.Text = LanguageManager.GetLang("Idle");
+                btnStartStop.Color = Color.FromArgb(33, 150, 243);
+
                 _recording = false;
+                btnRun.Enabled = true;
             }
             else
             {
-                btnStart.Text = LanguageManager.GetLang("Stop");
+                btnStartStop.Text = LanguageManager.GetLang("Stop");
                 labelStatus.Text = LanguageManager.GetLang("Recording");
+                btnStartStop.Color = Color.DarkRed;
                 _recording = true;
+
+                btnRun.Enabled = false;
             }
         }
 
@@ -109,6 +321,10 @@ namespace RSBot.Views
         /// <param name="e">The <see cref="System.EventArgs"/> instance containing the event data.</param>
         private void btnClear_Click(object sender, System.EventArgs e)
         {
+            if (MessageBox.Show(@"Do you really want to clear the script?", @"Are you sure?",
+                    MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question) != DialogResult.Yes)
+                return;
+
             txtScript.Clear();
         }
 
@@ -125,8 +341,8 @@ namespace RSBot.Views
             var diag = new SaveFileDialog
             {
                 Title = LanguageManager.GetLang("SaveRecordedScript"),
-                Filter = "RSBot Botbase Script|*.rbs",
-                InitialDirectory = Environment.CurrentDirectory + "\\Scripts"
+                Filter = "RSBot Botbase File|*.rbs",
+                InitialDirectory = ScriptManager.InitialDirectory
             };
 
             if (diag.ShowDialog() == DialogResult.OK)
@@ -145,7 +361,7 @@ namespace RSBot.Views
         }
 
         /// <summary>
-        /// Handles the Click event of the btnRunNow control.
+        /// Handles the Click event of the btnRun control.
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="System.EventArgs"/> instance containing the event data.</param>
@@ -158,8 +374,10 @@ namespace RSBot.Views
             {
                 ScriptManager.Stop();
 
-                btnRunNow.Text = LanguageManager.GetLang("RunNow");
-                labelStatus.Text = string.Empty;
+                labelStatus.Text = LanguageManager.GetLang("Idle");
+                btnRun.Text = "▶";
+                txtScript.ReadOnly = false;
+
                 _running = false;
             }
             else
@@ -168,10 +386,12 @@ namespace RSBot.Views
                     return;
 
                 ScriptManager.Load(txtScript.Text.Split('\n'));
-                Task.Run(() => { ScriptManager.RunScript(); });
+                Task.Run(() => ScriptManager.RunScript(false));
 
-                btnRunNow.Text = LanguageManager.GetLang("StopRunning");
                 labelStatus.Text = LanguageManager.GetLang("Running");
+                btnRun.Text = "X";
+                txtScript.ReadOnly = true;
+
                 _running = true;
             }
         }
@@ -180,5 +400,23 @@ namespace RSBot.Views
         {
             LanguageManager.Translate(this, Kernel.Language);
         }
+
+        private void btnAddCommand_Click(object sender, EventArgs e)
+        {
+            if (!(comboCommand.SelectedItem is CommandComboBoxItem selectedItem)) return;
+
+            if (selectedItem.Command.Arguments == null || selectedItem.Command.Arguments.Count == 0)
+            {
+                txtScript.AppendText(selectedItem.Command.Name + Environment.NewLine);
+
+                return;
+            }
+
+            var diag = new CommandDialog(selectedItem.Command);
+            if (diag.ShowDialog() == DialogResult.OK)
+                txtScript.AppendText(diag.CommandText + Environment.NewLine);
+        }
+
+        #endregion Events
     }
 }

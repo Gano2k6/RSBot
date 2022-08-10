@@ -55,6 +55,32 @@ namespace RSBot.Core.Components
         }
 
         /// <summary>
+        /// Try get an entity by the specified unique identifier.
+        /// </summary>
+        /// <param name="uniqueId">The searching uniqueId of the entity</param>
+        /// <param name="removedEntity">Returning founded entity</param>
+        /// <returns><c>true</c> if success; otherwise <c>false</c></returns>
+        public static bool TryGetEntityIncludingMe(uint uniqueId, out SpawnedEntity entity)
+        {
+            entity = null;
+
+            if (uniqueId == Game.Player.UniqueId)
+                entity = Game.Player;
+            else if (Game.Player.Transport?.UniqueId == uniqueId)
+                entity = Game.Player.Transport;
+            else if (Game.Player.JobTransport?.UniqueId == uniqueId)
+                entity = Game.Player.JobTransport;
+            else if (Game.Player.Growth?.UniqueId == uniqueId)
+                entity = Game.Player.Growth;
+            else if (Game.Player.Fellow?.UniqueId == uniqueId)
+                entity = Game.Player.Fellow;
+            else if (!TryGetEntity(uniqueId, out entity))
+                return false;
+
+            return entity != null;
+        }
+
+        /// <summary>
         /// Try get entity by unique id with specified generic type.
         /// </summary>
         /// <param name="uniqueId">The unique identifier.</param>
@@ -78,7 +104,7 @@ namespace RSBot.Core.Components
         {
             lock (_lock)
             {
-                entities = _entities.Where(p => p is T).Cast<T>();
+                entities = _entities.FindAll(p => p is T).Cast<T>();
 
                 return entities != null;
             }

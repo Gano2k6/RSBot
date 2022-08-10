@@ -26,10 +26,10 @@ namespace RSBot.Protection.Components.Town
         /// </summary>
         private static void OnPlayerLevelUp()
         {
-            if (!Kernel.Bot.Running) 
+            if (!Kernel.Bot.Running)
                 return;
 
-            if (!PlayerConfig.Get<bool>("RSBot.Protection.checkLevelUp")) 
+            if (!PlayerConfig.Get<bool>("RSBot.Protection.checkLevelUp"))
                 return;
 
             Log.NotifyLang("ReturnToTownLevelUpAchieved");

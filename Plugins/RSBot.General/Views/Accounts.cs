@@ -1,6 +1,6 @@
 ﻿using RSBot.Core;
 using RSBot.General.Models;
-using RSBot.Theme.Controls;
+using SDUI.Controls;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,6 +16,21 @@ namespace RSBot.General.Views
         public Accounts()
         {
             InitializeComponent();
+            comboBoxChannel.SelectedIndex = 0;
+            Text = "Accounts";
+        }
+
+        /// <summary>
+        /// Clear the textboxes
+        /// </summary>
+        private void ClearTextboxes()
+        {
+            txtPassword.Text = string.Empty;
+            textBoxSecondaryPassword.Text = string.Empty;
+            txtUsername.Text = string.Empty;
+            txtServername.Text = string.Empty;
+            btnSave.Enabled = false;
+            btnAdd.Visible = true;
         }
 
         /// <summary>
@@ -25,6 +40,7 @@ namespace RSBot.General.Views
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         private void Accounts_Load(object sender, EventArgs e)
         {
+            ClearTextboxes();
             listAccounts.BeginUpdate();
 
             listAccounts.Items.Clear();
@@ -52,9 +68,10 @@ namespace RSBot.General.Views
             selectedAccount.Password = txtPassword.Text;
             selectedAccount.SecondaryPassword = textBoxSecondaryPassword.Text;
             selectedAccount.Servername = txtServername.Text;
+            selectedAccount.Channel = (byte)(comboBoxChannel.SelectedIndex + 1);
 
             /*
-             * The listAccounts. Invalidate, Update, Refresh methods not updating the item text 
+             * The listAccounts. Invalidate, Update, Refresh methods not updating the item text
              * with class override tostring method after update the account class.
              * For that i called the method again. No have more idea.
              */
@@ -72,12 +89,7 @@ namespace RSBot.General.Views
         {
             if (listAccounts.SelectedIndex == -1)
             {
-                txtPassword.Clear();
-                textBoxSecondaryPassword.Clear();
-                txtUsername.Clear();
-                txtServername.Clear();
-                btnSave.Enabled = false;
-                btnAdd.Visible = true;
+                ClearTextboxes();
             }
             else
             {
@@ -89,7 +101,7 @@ namespace RSBot.General.Views
                 txtPassword.Text = selectedAccount.Password;
                 textBoxSecondaryPassword.Text = selectedAccount.SecondaryPassword;
                 txtServername.Text = selectedAccount.Servername;
-
+                comboBoxChannel.SelectedIndex = selectedAccount.Channel - 1;
                 btnSave.Enabled = true;
                 btnAdd.Visible = false;
             }
@@ -172,6 +184,7 @@ namespace RSBot.General.Views
                 SecondaryPassword = textBoxSecondaryPassword.Text,
                 Servername = txtServername.Text,
                 SelectedCharacter = string.Empty,
+                Channel = (byte)(comboBoxChannel.SelectedIndex + 1),
                 Characters = new List<string>(4)
             };
 

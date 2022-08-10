@@ -34,12 +34,16 @@ namespace RSBot.Core.Network.Handler.Agent.Entity
             var updateSource = packet.ReadUShort(); //UpdateSource
             var updateFlag = (EntityUpdateStatusFlag)packet.ReadByte();
 
-            if (uniqueId == Core.Game.Player.UniqueId)
+            if (uniqueId == Game.Player.UniqueId)
                 UpdatePlayerStatus(packet, updateFlag);
-            else if (Core.Game.Player.AttackPet != null && uniqueId == Core.Game.Player.AttackPet.UniqueId)
-                UpdatePetStatus(packet, updateFlag);
-            else if (Core.Game.Player.Vehicle != null && uniqueId == Core.Game.Player.Vehicle.UniqueId)
-                UpdateVehicleStatus(packet, updateFlag);
+            else if (Game.Player.Growth?.UniqueId == uniqueId)
+                UpdateGrowthStatus(packet, updateFlag);
+            else if (Game.Player.Fellow?.UniqueId == uniqueId)
+                UpdateFellowStatus(packet, updateFlag);
+            else if (Game.Player.Transport?.UniqueId == uniqueId)
+                UpdateTransportStatus(packet, updateFlag);
+            else if (Game.Player.JobTransport?.UniqueId == uniqueId)
+                UpdateJobTransportStatus(packet, updateFlag);
             else if (SpawnManager.TryGetEntity<SpawnedBionic>(uniqueId, out var entity))
                 UpdateEntityStatus(packet, updateFlag, entity);
         }
@@ -48,13 +52,13 @@ namespace RSBot.Core.Network.Handler.Agent.Entity
         {
             if ((updateFlag & EntityUpdateStatusFlag.HP) == EntityUpdateStatusFlag.HP)
             {
-                Core.Game.Player.Health = packet.ReadInt();
+                Game.Player.Health = packet.ReadInt();
                 EventManager.FireEvent("OnUpdateHP");
             }
 
             if ((updateFlag & EntityUpdateStatusFlag.MP) == EntityUpdateStatusFlag.MP)
             {
-                Core.Game.Player.Mana = packet.ReadInt();
+                Game.Player.Mana = packet.ReadInt();
                 EventManager.FireEvent("OnUpdateMP");
             }
 
@@ -63,14 +67,14 @@ namespace RSBot.Core.Network.Handler.Agent.Entity
 
             if ((updateFlag & EntityUpdateStatusFlag.BadEffect) == EntityUpdateStatusFlag.BadEffect)
             {
-                var effectPrevious = Core.Game.Player.BadEffect;
+                var effectPrevious = Game.Player.BadEffect;
                 var effectCurrent = (BadEffect)packet.ReadUInt();
                 var effectStarted = ~effectPrevious & effectCurrent;
                 var effectEnded = effectPrevious & ~effectCurrent;
 
                 foreach (BadEffect effectValue in Enum.GetValues(typeof(BadEffect)))
                 {
-                    if(effectValue == BadEffect.None)
+                    if (effectValue == BadEffect.None)
                         continue;
 
                     byte effectLevel;
@@ -85,7 +89,7 @@ namespace RSBot.Core.Network.Handler.Agent.Entity
                         Log.Warn($"{effectValue} status has ended.");
                 }
 
-                Core.Game.Player.BadEffect = effectCurrent;
+                Game.Player.BadEffect = effectCurrent;
 
                 if (effectStarted != BadEffect.None)
                     EventManager.FireEvent("OnPlayerBadEffect");
@@ -95,20 +99,20 @@ namespace RSBot.Core.Network.Handler.Agent.Entity
             }
         }
 
-        private static void UpdatePetStatus(Packet packet, EntityUpdateStatusFlag updateFlag)
+        private static void UpdateGrowthStatus(Packet packet, EntityUpdateStatusFlag updateFlag)
         {
             if ((updateFlag & EntityUpdateStatusFlag.HP) == EntityUpdateStatusFlag.HP)
-                Core.Game.Player.AttackPet.Health = packet.ReadInt();
+                Game.Player.Growth.Health = packet.ReadInt();
 
             if ((updateFlag & EntityUpdateStatusFlag.MP) == EntityUpdateStatusFlag.MP)
                 packet.ReadUInt();
 
             if ((updateFlag & EntityUpdateStatusFlag.HPMP) != EntityUpdateStatusFlag.HPMP)
-                EventManager.FireEvent("OnUpdatePetHPMP");
+                EventManager.FireEvent("OnGrowthHealthUpdate");
 
             if ((updateFlag & EntityUpdateStatusFlag.BadEffect) == EntityUpdateStatusFlag.BadEffect)
             {
-                var effectPrevious = Core.Game.Player.AttackPet.BadEffect;
+                var effectPrevious = Game.Player.Growth.BadEffect;
                 var effectCurrent = (BadEffect)packet.ReadUInt();
                 var effectStarted = ~effectPrevious & effectCurrent;
                 var effectEnded = effectPrevious & ~effectCurrent;
@@ -128,33 +132,88 @@ namespace RSBot.Core.Network.Handler.Agent.Entity
 
                     if ((effectEnded & effectValue) == effectValue)
                         Log.Warn($"Your pet's bad status {effectValue} has ended.");
-                        
+
                 }
 
-                Core.Game.Player.AttackPet.BadEffect = effectCurrent;
+                Game.Player.Growth.BadEffect = effectCurrent;
 
                 if (effectStarted != BadEffect.None)
-                    EventManager.FireEvent("OnPetBadEffect");
+                    EventManager.FireEvent("OnCosBadEffect", Game.Player.Growth);
 
                 if (effectEnded != BadEffect.None)
-                    EventManager.FireEvent("OnPetBadEffectEnd");
+                    EventManager.FireEvent("OnCosGrowthEffectEnd", Game.Player.Growth);
             }
         }
 
-        private static void UpdateVehicleStatus(Packet packet, EntityUpdateStatusFlag updateFlag)
+        private static void UpdateFellowStatus(Packet packet, EntityUpdateStatusFlag updateFlag)
         {
             if ((updateFlag & EntityUpdateStatusFlag.HP) == EntityUpdateStatusFlag.HP)
-                Core.Game.Player.Vehicle.Health = packet.ReadInt();
+            {
+                Game.Player.Fellow.Health = packet.ReadInt();
+            }
 
             if ((updateFlag & EntityUpdateStatusFlag.MP) == EntityUpdateStatusFlag.MP)
                 packet.ReadUInt();
 
             if ((updateFlag & EntityUpdateStatusFlag.HPMP) != EntityUpdateStatusFlag.HPMP)
-                EventManager.FireEvent("OnUpdateVehicleHPMP");
+                EventManager.FireEvent("OnFellowHealthUpdate");
+
+            if(updateFlag == EntityUpdateStatusFlag.Fellow)
+            {
+                Game.Player.Fellow.Satiety = packet.ReadInt();
+                EventManager.FireEvent("OnFellowSatietyUpdate");
+                //packet.ReadInt(); // bad status??
+            }
 
             if ((updateFlag & EntityUpdateStatusFlag.BadEffect) == EntityUpdateStatusFlag.BadEffect)
             {
-                var effectPrevious = Core.Game.Player.Vehicle.BadEffect;
+                var effectPrevious = Game.Player.Fellow.BadEffect;
+                var effectCurrent = (BadEffect)packet.ReadUInt();
+                var effectStarted = ~effectPrevious & effectCurrent;
+                var effectEnded = effectPrevious & ~effectCurrent;
+
+                foreach (BadEffect effectValue in Enum.GetValues(typeof(BadEffect)))
+                {
+                    if (effectValue == BadEffect.None)
+                        continue;
+
+                    byte effectLevel;
+
+                    if ((effectCurrent & effectValue) > BadEffect.Zombie)
+                        effectLevel = packet.ReadByte(); //EffectLevel
+
+                    if ((effectStarted & effectValue) == effectValue)
+                        Log.Warn($"Your fellow pet are under {effectValue} status.");
+
+                    if ((effectEnded & effectValue) == effectValue)
+                        Log.Warn($"Your fellow pet's bad status {effectValue} has ended.");
+
+                }
+
+                Game.Player.Fellow.BadEffect = effectCurrent;
+
+                if (effectStarted != BadEffect.None)
+                    EventManager.FireEvent("OnCosBadEffect", Game.Player.Fellow);
+
+                if (effectEnded != BadEffect.None)
+                    EventManager.FireEvent("OnCosBadEffectEnd", Game.Player.Fellow);
+            }
+        }
+
+        private static void UpdateTransportStatus(Packet packet, EntityUpdateStatusFlag updateFlag)
+        {
+            if ((updateFlag & EntityUpdateStatusFlag.HP) == EntityUpdateStatusFlag.HP)
+                Game.Player.Transport.Health = packet.ReadInt();
+
+            if ((updateFlag & EntityUpdateStatusFlag.MP) == EntityUpdateStatusFlag.MP)
+                packet.ReadUInt();
+
+            if ((updateFlag & EntityUpdateStatusFlag.HPMP) != EntityUpdateStatusFlag.HPMP)
+                EventManager.FireEvent("OnUpdateTransportHealth");
+
+            if ((updateFlag & EntityUpdateStatusFlag.BadEffect) == EntityUpdateStatusFlag.BadEffect)
+            {
+                var effectPrevious = Game.Player.Transport.BadEffect;
                 var effectCurrent = (BadEffect)packet.ReadUInt();
                 var effectStarted = ~effectPrevious & effectCurrent;
                 var effectEnded = effectPrevious & ~effectCurrent;
@@ -176,13 +235,58 @@ namespace RSBot.Core.Network.Handler.Agent.Entity
                         Log.Warn($"Your vehicle's bad status {effectValue} has ended.");
                 }
 
-                Core.Game.Player.Vehicle.BadEffect = effectCurrent;
+                Game.Player.Transport.BadEffect = effectCurrent;
 
                 if (effectStarted != BadEffect.None)
-                    EventManager.FireEvent("OnVehicleBadEffect");
+                    EventManager.FireEvent("OnCosBadEffect", Game.Player.Transport);
 
                 if (effectEnded != BadEffect.None)
-                    EventManager.FireEvent("OnVehicleBadEffectEnd");
+                    EventManager.FireEvent("OnCosBadEffectEnd", Game.Player.Transport);
+            }
+        }
+
+        private static void UpdateJobTransportStatus(Packet packet, EntityUpdateStatusFlag updateFlag)
+        {
+            if ((updateFlag & EntityUpdateStatusFlag.HP) == EntityUpdateStatusFlag.HP)
+                Game.Player.JobTransport.Health = packet.ReadInt();
+
+            if ((updateFlag & EntityUpdateStatusFlag.MP) == EntityUpdateStatusFlag.MP)
+                packet.ReadUInt();
+
+            if ((updateFlag & EntityUpdateStatusFlag.HPMP) != EntityUpdateStatusFlag.HPMP)
+                EventManager.FireEvent("OnUpdateJobTransportHealth");
+
+            if ((updateFlag & EntityUpdateStatusFlag.BadEffect) == EntityUpdateStatusFlag.BadEffect)
+            {
+                var effectPrevious = Game.Player.JobTransport.BadEffect;
+                var effectCurrent = (BadEffect)packet.ReadUInt();
+                var effectStarted = ~effectPrevious & effectCurrent;
+                var effectEnded = effectPrevious & ~effectCurrent;
+
+                foreach (BadEffect effectValue in Enum.GetValues(typeof(BadEffect)))
+                {
+                    if (effectValue == BadEffect.None)
+                        continue;
+
+                    byte effectLevel;
+
+                    if ((effectCurrent & effectValue) > BadEffect.Zombie)
+                        effectLevel = packet.ReadByte(); //EffectLevel
+
+                    if ((effectStarted & effectValue) == effectValue)
+                        Log.Warn($"Your job vehicle is under bad status {effectValue}.");
+
+                    if ((effectEnded & effectValue) == effectValue)
+                        Log.Warn($"Your job vehicle's bad status {effectValue} has ended.");
+                }
+
+                Game.Player.JobTransport.BadEffect = effectCurrent;
+
+                if (effectStarted != BadEffect.None)
+                    EventManager.FireEvent("OnCosBadEffect", Game.Player.JobTransport);
+
+                if (effectEnded != BadEffect.None)
+                    EventManager.FireEvent("OnCosBadEffectEnd", Game.Player.JobTransport);
             }
         }
 
@@ -198,10 +302,10 @@ namespace RSBot.Core.Network.Handler.Agent.Entity
                 if (health <= 0)
                 {
                     EventManager.FireEvent("OnKillSelectedEnemy");
-                    Core.Game.SelectedEntity = null;
+                    Game.SelectedEntity = null;
                 }
 
-                if(Core.Game.SelectedEntity?.UniqueId == bionic.UniqueId)
+                if (Game.SelectedEntity?.UniqueId == bionic.UniqueId)
                     EventManager.FireEvent("OnUpdateSelectedEntityHP", bionic);
             }
 
@@ -210,7 +314,7 @@ namespace RSBot.Core.Network.Handler.Agent.Entity
 
             if ((updateFlag & EntityUpdateStatusFlag.BadEffect) == EntityUpdateStatusFlag.BadEffect)
             {
-                
+
             }
         }
     }

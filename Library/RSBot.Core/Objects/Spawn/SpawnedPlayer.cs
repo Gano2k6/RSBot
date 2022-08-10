@@ -204,7 +204,7 @@ namespace RSBot.Core.Objects.Spawn
         {
             Scale = packet.ReadByte();
             
-            //if(Game.ClientType > GameClientType.JapaneseOld) Jsro 90cap
+            if(Game.ClientType > GameClientType.Japanese_Old)
                 HwanLevel = packet.ReadByte();
 
             if(Game.ClientType > GameClientType.Thailand)
@@ -216,8 +216,6 @@ namespace RSBot.Core.Objects.Spawn
                 packet.ReadByte(); // Archievement Title
 
             InventorySize = packet.ReadByte();
-
-            #region Regular equipment
 
             var itemCount = packet.ReadByte();
             Inventory = new Dictionary<RefObjItem, byte>();
@@ -235,37 +233,33 @@ namespace RSBot.Core.Objects.Spawn
                 }
 
                 //Check if the player wears a job-suit
-                if (itemObj.IsJobEquip)
+                if (itemObj.IsJobOutfit)
                     WearsJobSuite = true;
 
                 if (itemObj.IsEquip)
                     Inventory.Add(itemObj, packet.ReadByte()); //Item object and the "+" value as value
             }
 
-            #endregion Regular equipment
-
-            #region Avatar equipment
-
             Avatars = new Dictionary<RefObjItem, byte>();
-
-            AvatarInventorySize = packet.ReadByte();
-            itemCount = packet.ReadByte();
-
-            for (var i = 0; i < itemCount; i++)
+            if (Game.ClientType >= GameClientType.Thailand)
             {
-                var itemId = packet.ReadUInt();
-                var itemObj = Game.ReferenceManager.GetRefItem(itemId);
-                if (itemObj == null)
+                AvatarInventorySize = packet.ReadByte();
+                itemCount = packet.ReadByte();
+
+                for (var i = 0; i < itemCount; i++)
                 {
-                    packet.ReadByte();
-                    Log.Debug($"Unknown item [{itemId}]");
-                    continue;
+                    var itemId = packet.ReadUInt();
+                    var itemObj = Game.ReferenceManager.GetRefItem(itemId);
+                    if (itemObj == null)
+                    {
+                        packet.ReadByte();
+                        Log.Debug($"Unknown item [{itemId}]");
+                        continue;
+                    }
+
+                    Avatars.Add(itemObj, packet.ReadByte()); //Item object and the "+" value as value
                 }
-
-                Avatars.Add(itemObj, packet.ReadByte()); //Item object and the "+" value as value
             }
-
-            #endregion Avatar equipment
 
             var hasMask = packet.ReadBool();
             if (hasMask)
@@ -332,13 +326,16 @@ namespace RSBot.Core.Objects.Spawn
             else
                 Guild = new SpawnedPlayerGuild { Name = guildName };
 
-            if (InteractMode == InteractMode.P2N_TALK || InteractMode == InteractMode.P2N_TALK2)
+            if(Game.ClientType > GameClientType.Chinese && InteractMode == InteractMode.P2N_TALK2)
+                Stall = SpawnedPlayerStall.FromPacket(packet);
+            else if(Game.ClientType <= GameClientType.Chinese && InteractMode == InteractMode.P2N_TALK)
                 Stall = SpawnedPlayerStall.FromPacket(packet);
 
             if (Game.ClientType >= GameClientType.Global)
                 packet.ReadByteArray(9);
 
             packet.ReadByte(); //Equipment Cooldown
+
             PKFlag = packet.ReadByte(); //PKFlag
 
             if (Game.ClientType > GameClientType.Chinese)

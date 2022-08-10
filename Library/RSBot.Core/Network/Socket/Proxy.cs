@@ -1,4 +1,5 @@
 ﻿using RSBot.Core.Event;
+using System;
 
 namespace RSBot.Core.Network
 {
@@ -163,6 +164,41 @@ namespace RSBot.Core.Network
             Client.Listen(clientPort);
         }
 
+        /// <summary>
+        /// Handle received packet
+        /// </summary>
+        /// <param name="packet">The packet</param>
+        private void HandleReceivedPacket(Packet packet, PacketDestination destination)
+        {
+            try
+            {
+                packet = PacketManager.CallHook(packet, destination);
+            }
+            catch (Exception e)
+            {
+                Log.Fatal(e);
+            }
+            finally
+            {
+                if (packet != null)
+                {
+                    try
+                    {
+                        PacketManager.SendPacket(packet, destination);
+
+                        packet.SeekRead(0, System.IO.SeekOrigin.Begin);
+
+                        PacketManager.CallHandler(packet, destination);
+                        PacketManager.CallCallback(packet);
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Fatal(e);
+                    }
+                }
+            }
+        }
+
         #region Event Listeners
 
         #region Client
@@ -196,27 +232,11 @@ namespace RSBot.Core.Network
         /// <param name="packet">The packet.</param>
         private void Client_OnPacketReceived(Packet packet)
         {
-            try
-            {
-                if (IsConnectedToAgentserver && packet.Opcode == 0x6100)
-                    return;
+            if (IsConnectedToAgentserver && packet.Opcode == 0x6100)
+                return;
 
-                EventManager.FireEvent("OnClientPacketReceive", packet);
-
-                PacketManager.CallHandler(packet, PacketDestination.Server);
-                packet = PacketManager.CallHook(packet, PacketDestination.Server);
-
-                PacketManager.CallCallback(packet);
-            }
-            catch (System.Exception e)
-            {
-                Log.Fatal(e);
-            }
-            finally
-            {
-                if (packet != null)
-                    PacketManager.SendPacket(packet, PacketDestination.Server);
-            }
+            HandleReceivedPacket(packet, PacketDestination.Server);
+            EventManager.FireEvent("OnClientPacketReceive", packet);
         }
 
         #endregion Client
@@ -229,24 +249,9 @@ namespace RSBot.Core.Network
         /// <param name="packet">The packet.</param>
         private void Server_OnPacketReceived(Packet packet)
         {
-            try
-            {
-                EventManager.FireEvent("OnServerPacketReceive", packet);
+            HandleReceivedPacket(packet, PacketDestination.Client);
 
-                PacketManager.CallHandler(packet, PacketDestination.Client);
-                packet = PacketManager.CallHook(packet, PacketDestination.Client);
-
-                PacketManager.CallCallback(packet);
-            }
-            catch (System.Exception e)
-            {
-                Log.Fatal(e);
-            }
-            finally
-            {
-                if (packet != null)
-                    PacketManager.SendPacket(packet, PacketDestination.Client);
-            }
+            EventManager.FireEvent("OnServerPacketReceive", packet);
         }
 
         /// <summary>
@@ -272,6 +277,9 @@ namespace RSBot.Core.Network
                 Log.Warn("Disconnected from game server!");
 
                 IsConnectedToAgentserver = false;
+
+                Game.Ready = false;
+                Game.Started = false;
 
                 EventManager.FireEvent("OnAgentServerDisconnected");
             }

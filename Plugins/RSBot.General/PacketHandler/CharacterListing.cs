@@ -1,6 +1,7 @@
 ﻿using RSBot.Core;
 using RSBot.Core.Event;
 using RSBot.Core.Network;
+using System.Linq;
 
 namespace RSBot.General.PacketHandler
 {
@@ -68,8 +69,8 @@ namespace RSBot.General.PacketHandler
                     packet.ReadUShort(); // Region
 
                 //Check if the character is being deleted
-                var characterDeletionFlag = packet.ReadByte();
-                if (characterDeletionFlag == 0x01)
+                var characterDeletionFlag = packet.ReadBool();
+                if (characterDeletionFlag)
                     packet.ReadInt(); //Time till deletion
 
                 if (Game.ClientType > GameClientType.Chinese)
@@ -90,15 +91,19 @@ namespace RSBot.General.PacketHandler
                     packet.ReadByte(); //Item plus value (enhancement)
                 }
 
-                //Read avatars
-                var avatarCount = packet.ReadByte();
-                for (var iAvatar = 0; iAvatar < avatarCount; iAvatar++)
+                if (Game.ClientType >= GameClientType.Thailand)
                 {
-                    packet.ReadInt(); //Avatar identifier
-                    packet.ReadByte(); //Avatar plus value (enhancement)
+                    //Read avatars
+                    var avatarCount = packet.ReadByte();
+                    for (var iAvatar = 0; iAvatar < avatarCount; iAvatar++)
+                    {
+                        packet.ReadInt(); //Avatar identifier
+                        packet.ReadByte(); //Avatar plus value (enhancement)
+                    }
                 }
 
-                lobbyCharacters[i] = name;
+                if (!characterDeletionFlag)
+                    lobbyCharacters[i] = name;
 
                 Log.NotifyLang("PlayerDetected", name, level);
             }
@@ -122,7 +127,8 @@ namespace RSBot.General.PacketHandler
                 return;
             }
 
-            Components.AutoLogin.EnterGame(selectedAccount.SelectedCharacter);
+            if (lobbyCharacters.Contains(selectedAccount.SelectedCharacter))
+                Components.AutoLogin.EnterGame(selectedAccount.SelectedCharacter);
         }
     }
 }

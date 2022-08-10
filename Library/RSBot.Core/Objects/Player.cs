@@ -1,5 +1,7 @@
 ﻿using RSBot.Core.Client.ReferenceObjects;
+using RSBot.Core.Event;
 using RSBot.Core.Network;
+using RSBot.Core.Objects.Inventory;
 using RSBot.Core.Objects.Quests;
 using RSBot.Core.Objects.Skill;
 using RSBot.Core.Objects.Spawn;
@@ -157,14 +159,6 @@ namespace RSBot.Core.Objects
         public PvpFlag PvpFlag { get; set; }
 
         /// <summary>
-        /// Gets or sets the inventory.
-        /// </summary>
-        /// <value>
-        /// The inventory.
-        /// </value>
-        public Inventory Inventory { get; set; }
-
-        /// <summary>
         /// Gets or sets the skills.
         /// </summary>
         /// <value>
@@ -293,22 +287,6 @@ namespace RSBot.Core.Objects
         public ushort Intelligence { get; set; }
 
         /// <summary>
-        /// Gets or sets the storage.
-        /// </summary>
-        /// <value>
-        /// The storage.
-        /// </value>
-        public Storage Storage { get; set; }
-
-        /// <summary>
-        /// Gets or sets the guild storage.
-        /// </summary>
-        /// <value>
-        /// The guild storage.
-        /// </value>
-        public Storage GuildStorage { get; set; }
-
-        /// <summary>
         /// Gets or sets the job information.
         /// </summary>
         /// <value>
@@ -354,7 +332,15 @@ namespace RSBot.Core.Objects
         /// <value>
         /// <c>true</c> if this instance has active attack pet; otherwise, <c>false</c>.
         /// </value>
-        public bool HasActiveAttackPet => AttackPet != null;
+        public bool HasActiveAttackPet => Growth != null;
+
+        /// <summary>
+        /// Gets a value indicating whether this instance has active fellow pet.
+        /// </summary>
+        /// <value>
+        /// <c>true</c> if this instance has active fellow pet; otherwise, <c>false</c>.
+        /// </value>
+        public bool HasActiveFellowPet => Fellow != null;
 
         /// <summary>
         /// Gets a value indicating whether this instance has active ability pet.
@@ -378,7 +364,15 @@ namespace RSBot.Core.Objects
         /// <value>
         /// The attack pet.
         /// </value>
-        public AttackPet AttackPet { get; set; }
+        public Cos.Growth Growth { get; set; }
+
+        /// <summary>
+        /// Gets or sets the attack pet.
+        /// </summary>
+        /// <value>
+        /// The attack pet.
+        /// </value>
+        public Cos.Fellow Fellow { get; set; }
 
         /// <summary>
         /// Gets or sets the vehicle.
@@ -386,7 +380,15 @@ namespace RSBot.Core.Objects
         /// <value>
         /// The vehicle.
         /// </value>
-        public Vehicle Vehicle { get; set; }
+        public Cos.Transport Transport { get; set; }
+
+        /// <summary>
+        /// Gets or sets the vehicle.
+        /// </summary>
+        /// <value>
+        /// The vehicle.
+        /// </value>
+        public Cos.JobTransport JobTransport { get; set; }
 
         /// <summary>
         /// Gets or sets the ability pet.
@@ -394,7 +396,15 @@ namespace RSBot.Core.Objects
         /// <value>
         /// The ability pet.
         /// </value>
-        public AbilityPet AbilityPet { get; set; }
+        public Cos.Ability AbilityPet { get; set; }
+
+        /// <summary>
+        /// Gets or sets the mounted pet.
+        /// </summary>
+        /// <value>
+        /// The mounted pet.
+        /// </value>
+        public Cos.Cos Vehicle { get; set; }
 
         /// <summary>
         /// Gets or sets the teleportation.
@@ -405,12 +415,52 @@ namespace RSBot.Core.Objects
         public Teleportation Teleportation { get; set; }
 
         /// <summary>
-        /// Gets or sets the buffs.
+        /// Gets or sets the Character's Inventory.
         /// </summary>
         /// <value>
-        /// The buffs.
+        /// The Character's Inventory.
         /// </value>
-        public List<BuffInfo> Buffs => State?.ActiveBuffs;
+        public CharacterInventory Inventory { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Avatar Inventory.
+        /// </summary>
+        /// <value>
+        /// The Avatar Inventory.
+        /// </value>
+        public InventoryItemCollection Avatars { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Job2 Inventory.
+        /// </summary>
+        /// <value>
+        /// The Job2 Inventory.
+        /// </value>
+        public InventoryItemCollection Job2 { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Specialty Good Box Inventory.
+        /// </summary>
+        /// <value>
+        /// The Job2 Specialty Good Box Inventory.
+        /// </value>
+        public InventoryItemCollection Job2SpecialtyBag { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Storage.
+        /// </summary>
+        /// <value>
+        /// The Storage.
+        /// </value>
+        public Storage Storage { get; set; }
+
+        /// <summary>
+        /// Gets or sets the GuildStorage.
+        /// </summary>
+        /// <value>
+        /// The GuildStorage.
+        /// </value>
+        public Storage GuildStorage { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether [in action].
@@ -464,6 +514,11 @@ namespace RSBot.Core.Objects
         public int _lastHpPotionTick;
 
         /// <summary>
+        /// Gets or sets a dictionary of inventory items currently used in an alchemy operation
+        /// </summary>
+        public Dictionary<byte, InventoryItem> ActiveAlchemyItems { get; set; }
+
+        /// <summary>
         /// Gets or sets the last mp potion item tick count
         /// </summary>
         private int _lastMpPotionTick;
@@ -502,22 +557,19 @@ namespace RSBot.Core.Objects
         /// <inheritdoc/>
         /// </summary>
         /// <param name="objId"></param>
-        public Player(uint objId) : base(objId){}
+        public Player(uint objId) : base(objId) { }
 
         /// <summary>
-        /// Gets the ammo amount.
+        /// Gets the ammunition amount.
         /// </summary>
         /// <returns></returns>
-        public short GetAmmunationAmount(bool fullInventory = false)
+        public int GetAmmunitionAmount(bool fullInventory = false)
         {
             if (!fullInventory)
             {
                 var itemAtSlot = Inventory.GetItemAt(7);
-                if (itemAtSlot != null && itemAtSlot.Record.TypeID2 == 3 && (itemAtSlot.Record.TypeID3 == 4))
+                if (itemAtSlot?.Record.TypeID2 == 3 && itemAtSlot?.Record.TypeID3 == 4)
                     return (short)itemAtSlot.Amount;
-
-                if (itemAtSlot == null)
-                    return 0;
             }
             else
             {
@@ -525,42 +577,28 @@ namespace RSBot.Core.Objects
                 {
                     TypeID1 = 3,
                     TypeID2 = 3,
-                    TypeID3 = 4
+                    TypeID3 = 4,
+                    TypeID4 = (byte) GetCurrentAmmunitionType()
                 };
 
-                if (GetCurrentAmmunationType() == AmmunitionType.Arrow)
-                    typeIdFilter.TypeID4 = 1;
-                else if (GetCurrentAmmunationType() == AmmunitionType.Bolt)
-                    typeIdFilter.TypeID4 = 2;
-
-                var items = (from item in Inventory.Items where typeIdFilter.EqualsRefItem(item.Record) select item).ToList();
-                return (short)items.Aggregate(0, (current, item) => current + item.Amount);
+                return Inventory.GetSumAmount(typeIdFilter);
             }
 
             return -1;
         }
 
         /// <summary>
-        /// Gets the type of the current ammunation.
+        /// Gets the type of the current ammunition.
         /// </summary>
         /// <returns></returns>
-        public AmmunitionType GetCurrentAmmunationType()
+        public AmmunitionType GetCurrentAmmunitionType()
         {
-            var itemAtSlot = Inventory.GetItemAt(7);
-            if (itemAtSlot == null || itemAtSlot.Record.TypeID2 != 3 || itemAtSlot.Record.TypeID3 != 4)
-                return AmmunitionType.None;
-
-            switch (itemAtSlot.Record.TypeID4)
+            return Game.Player.Race switch
             {
-                case 1:
-                    return AmmunitionType.Arrow;
-
-                case 2:
-                    return AmmunitionType.Bolt;
-
-                default: //Unknown ammo type
-                    return AmmunitionType.None;
-            }
+                ObjectCountry.Europe => AmmunitionType.Bolt,
+                ObjectCountry.Chinese => AmmunitionType.Arrow,
+                _ => AmmunitionType.None
+            };
         }
 
         /// <summary>
@@ -584,7 +622,7 @@ namespace RSBot.Core.Objects
 
             if (HasActiveVehicle)
             {
-                Vehicle.MoveTo(destination);
+                Transport.MoveTo(destination);
                 return true;
             }
 
@@ -592,7 +630,7 @@ namespace RSBot.Core.Objects
             packet.WriteByte(1);
             packet.WriteUShort(destination.RegionID);
 
-            if (!destination.IsInDungeon)
+            if (!Game.Player.IsInDungeon)
             {
                 packet.WriteShort(destination.XOffset);
                 packet.WriteShort(destination.ZOffset);
@@ -605,12 +643,10 @@ namespace RSBot.Core.Objects
                 packet.WriteInt(destination.YOffset);
             }
 
-            packet.Lock();
-
             var awaitCallback = new AwaitCallback(response =>
             {
                 var uniqueId = response.ReadUInt();
-                return uniqueId == Game.Player.UniqueId ? AwaitCallbackResult.Received : AwaitCallbackResult.None;
+                return uniqueId == Game.Player.UniqueId ? AwaitCallbackResult.Success : AwaitCallbackResult.ConditionFailed;
             }, 0xB021);
 
             PacketManager.SendPacket(packet, PacketDestination.Server, awaitCallback);
@@ -647,24 +683,27 @@ namespace RSBot.Core.Objects
                     if (record.Param1 > 0 || record.Param3 > 0)
                     {
                         if (Race == ObjectCountry.Chinese)
-                            duration = 1000;
+                            duration = 1050;
                         else
-                            duration = 15000;
+                            duration = 15050;
                     }
                     // grain
                     else if (record.Param2 > 0 || record.Param4 > 0)
                     {
-                        duration = 4000;
+                        duration = 4050;
                     }
                 }
-                var elapsed = Environment.TickCount - tick;
-                Log.Debug($"{potionItem.Record.GetRealName()} {tick}   {elapsed} {duration}    {elapsed < duration}");
+                var elapsed = Kernel.TickCount - tick;
+               
                 if (elapsed < duration)
                     return false;
 
                 var result = potionItem.Use();
-                tick = Environment.TickCount;
 
+                if (result)
+                    tick = Kernel.TickCount;
+
+                Log.Debug($"Potion [{potionItem.Record.GetRealName()}] used");
                 return result;
             }
         }
@@ -691,7 +730,7 @@ namespace RSBot.Core.Objects
         /// <returns></returns>
         public bool UseVigorPotion()
         {
-            return UsePotion(new TypeIdFilter(3, 3, 1, 2), ref _lastVigorPotionTick, ref _lastVigorDuration);
+            return UsePotion(new TypeIdFilter(3, 3, 1, 3), ref _lastVigorPotionTick, ref _lastVigorDuration);
         }
 
         /// <summary>
@@ -703,8 +742,8 @@ namespace RSBot.Core.Objects
             if (State.LifeState == LifeState.Dead)
                 return false;
 
-            var elapsed = Environment.TickCount - _lastUniversalPillTick;
-            if (elapsed < 1000)
+            var elapsed = Kernel.TickCount - _lastUniversalPillTick;
+            if (elapsed < 1050)
                 return false;
 
             var typeIdFilter = new TypeIdFilter(3, 3, 2, 6);
@@ -714,7 +753,7 @@ namespace RSBot.Core.Objects
 
             var result = slotItem.Use();
             if (result)
-                _lastUniversalPillTick = Environment.TickCount;
+                _lastUniversalPillTick = Kernel.TickCount;
 
             return result;
         }
@@ -728,8 +767,8 @@ namespace RSBot.Core.Objects
             if (State.LifeState == LifeState.Dead)
                 return false;
 
-            var elapsed = Environment.TickCount - _lastPurificationPillTick;
-            if (elapsed < 20000)
+            var elapsed = Kernel.TickCount - _lastPurificationPillTick;
+            if (elapsed < 20050)
                 return false;
 
             var typeIdFilter = new TypeIdFilter(3, 3, 2, 1);
@@ -739,7 +778,7 @@ namespace RSBot.Core.Objects
 
             var result = slotItem.Use();
             if (result)
-                _lastPurificationPillTick = Environment.TickCount;
+                _lastPurificationPillTick = Kernel.TickCount;
 
             return result;
         }
@@ -750,10 +789,11 @@ namespace RSBot.Core.Objects
         /// <returns></returns>
         public bool SummonAbilityPet()
         {
-            if (AbilityPet != null) return false;
+            if (AbilityPet != null)
+                return false;
 
             var typeIdFilter = new TypeIdFilter(3, 2, 1, 2);
-            var slotItem = (from item in Inventory.Items where typeIdFilter.EqualsRefItem(item.Record) select item).FirstOrDefault();
+            var slotItem = Inventory.GetItem(typeIdFilter);
             if (slotItem == null)
                 return false;
 
@@ -766,10 +806,11 @@ namespace RSBot.Core.Objects
         /// <returns></returns>
         public bool SummonVehicle()
         {
-            if (HasActiveVehicle) return false;
+            if (HasActiveVehicle || Game.Player.State.BattleState == BattleState.InBattle)
+                return false;
 
             var typeIdFilter = new TypeIdFilter(3, 3, 3, 2);
-            var vehicleItem = (from item in Inventory.Items where typeIdFilter.EqualsRefItem(item.Record) && item.Record.ReqLevel1 <= Game.Player.Level select item).FirstOrDefault();
+            var vehicleItem = Inventory.GetItem(item => typeIdFilter.EqualsRefItem(item.Record) && item.Record.ReqLevel1 <= Game.Player.Level);
             if (vehicleItem == null)
                 return false;
 
@@ -786,7 +827,7 @@ namespace RSBot.Core.Objects
                 return false;
 
             var typeIdFilter = new TypeIdFilter(3, 3, 3, 1);
-            var slotItem = (from item in Inventory.Items where typeIdFilter.EqualsRefItem(item.Record) && item.Record.ReqLevel1 <= Game.Player.Level select item).FirstOrDefault();
+            var slotItem = Inventory.GetItem(item => typeIdFilter.EqualsRefItem(item.Record) && item.Record.ReqLevel1 <= Game.Player.Level);
             if (slotItem == null)
                 return false;
 
@@ -794,9 +835,9 @@ namespace RSBot.Core.Objects
         }
 
         /// <summary>
-        /// Equips the ammunation.
+        /// Equips the ammunition.
         /// </summary>
-        public void EquipAmmunation()
+        public void EquipAmmunition()
         {
             if (!Kernel.Bot.Running)
                 return;
@@ -804,42 +845,46 @@ namespace RSBot.Core.Objects
             var currentWeapon = Inventory.GetItemAt(6);
             var currentAmmunation = Inventory.GetItemAt(7);
 
-            if (currentWeapon == null || currentAmmunation != null) return;
+            if (currentWeapon == null || currentAmmunation != null)
+                return;
+
+            InventoryItem ammunition;
 
             if (currentWeapon.Record.TypeID4 == 6) //Bow
-            {
-                var ammunation = Inventory.GetItem(new TypeIdFilter(3, 3, 4, 1));
-                if (ammunation != null)
-                    Inventory.MoveItem(ammunation.Slot, 7);
-                else
-                    Log.Notify("Could not auto-equip ammunation: No correct ammunation type was found in the player's inventory");
-            }
+                ammunition = Inventory.GetItem(new TypeIdFilter(3, 3, 4, 1));
             else if (currentWeapon.Record.TypeID4 == 12) //Crossbow
+                ammunition = Inventory.GetItem(new TypeIdFilter(3, 3, 4, 2));
+            else
+                return;
+
+            if (ammunition != null)
             {
-                var ammunation = Inventory.GetItem(new TypeIdFilter(3, 3, 4, 2));
-                if (ammunation != null)
-                    Inventory.MoveItem(ammunation.Slot, 7);
-                else
-                    Log.Notify("Could not auto-equip ammunation: No correct ammunation type was found in the player's inventory");
+                Inventory.MoveItem(ammunition.Slot, 7);
+                return;
             }
+
+            if (!PlayerConfig.Get<bool>("RSBot.Protection.checkNoArrows"))
+            {
+                Kernel.Bot.Stop();
+                return;
+            }
+
+            Log.Notify("Could not auto-equip ammunition: No correct ammunition type was found in the player's inventory");
+            EventManager.FireEvent("OnUpdateAmmunition");
         }
 
         /// <summary>
-        /// Revives the attack pet.
+        /// Revives the growth pet.
         /// </summary>
         /// <returns></returns>
-        public bool ReviveAttackPet()
+        public bool ReviveGrowth()
         {
-            var typeIdFilter = new TypeIdFilter(3, 3, 1, 6);
-            var rescueItem = Inventory.GetItem(typeIdFilter);
-
-            if (rescueItem == null)
+            var petItem = Inventory.GetItem(p => p.Record.IsGrowthPet && p.State == InventoryItemState.Dead);
+            if (petItem == null)
                 return false;
 
-            typeIdFilter = new TypeIdFilter(3, 2, 1, 1);
-            var petItem = Inventory.GetItem(typeIdFilter);
-
-            if (petItem == null)
+            var rescueItem = Inventory.GetItem(p => p.Record.IsCosRevivalPotion);
+            if (rescueItem == null)
                 return false;
 
             rescueItem.UseTo(petItem.Slot);
@@ -847,24 +892,66 @@ namespace RSBot.Core.Objects
         }
 
         /// <summary>
+        /// Revives the fellow pet.
+        /// </summary>
+        /// <returns></returns>
+        public bool ReviveFellow()
+        {
+            var petItem = Inventory.GetItem(p => p.Record.IsFellowPet && p.State == InventoryItemState.Dead);
+            if (petItem == null)
+                return false;
+
+            var petLevel = petItem.Cos.Level;
+            var rescueItem = Inventory.GetItem(p => p.Record.IsCosRevivalPotion &&
+                p.Record.CodeName.StartsWith("ITEM_PET2_GOODS_REVIVAL_") &&
+                petLevel >= p.Record.ReqLevel1 && petLevel <= p.Record.ReqLevel2);
+
+            if (rescueItem == null)
+                return false;
+
+            rescueItem.UseTo(petItem.Slot);
+
+            return true;
+        }
+
+        /// <summary>
         /// Summons the attack pet.
         /// </summary>
         /// <returns></returns>
-        public bool SummonAttackPet()
+        public bool SummonGrowth()
         {
-            if (AttackPet != null)
+            if (Growth != null)
                 return false;
 
             var typeIdFilter = new TypeIdFilter(3, 2, 1, 1);
-            var petItem = Inventory.GetItem(typeIdFilter);
 
+            var petItem = Inventory.GetItem(typeIdFilter);
             if (petItem == null)
                 return false;
 
             if (petItem.State == InventoryItemState.Summoned || petItem.State == InventoryItemState.Dead)
                 return false;
 
-            Log.Notify("Summoning attack pet");
+            return petItem.Use();
+        }
+
+        /// <summary>
+        /// Summons the fellow pet.
+        /// </summary>
+        /// <returns></returns>
+        public bool SummonFellow()
+        {
+            if (Fellow != null)
+                return false;
+
+            var typeIdFilter = new TypeIdFilter(3, 2, 1, 3);
+
+            var petItem = Inventory.GetItem(typeIdFilter);
+            if (petItem == null)
+                return false;
+
+            if (petItem.State == InventoryItemState.Summoned || petItem.State == InventoryItemState.Dead)
+                return false;
 
             return petItem.Use();
         }
@@ -874,15 +961,41 @@ namespace RSBot.Core.Objects
         /// </summary>
         public void EnterBerzerkMode()
         {
-            if (!CanEnterBerzerk) return;
+            if (!CanEnterBerzerk)
+                return;
 
             var packet = new Packet(0x70A7);
             packet.WriteByte(0x1); //Enter HWAN
-            packet.Lock();
 
             var callback = new AwaitCallback(null, 0xB0A7);
             PacketManager.SendPacket(packet, PacketDestination.Server, callback);
             callback.AwaitResponse(500);
+        }
+
+        /// <summary>
+        /// Get ability skills
+        /// </summary>
+        /// <param name="abilitySkills">The ability skills</param>
+        public bool TryGetAbilitySkills(out List<SkillInfo> abilitySkills)
+        {
+            var player = Game.Player;
+            abilitySkills = new List<SkillInfo>();
+
+            foreach (var item in player.Inventory.GetEquippedPartItems().Union(player.Avatars))
+            {
+                if (item.HasAbility(out var abilityItem))
+                    abilitySkills.AddRange(abilityItem.GetLinks().Select(skillId => new SkillInfo(skillId, true)));
+
+                if(Game.ClientType >= GameClientType.Chinese)
+                {
+                    if (!item.HasExtraAbility(out var extraAbilityItems))
+                        continue;
+
+                    abilitySkills.AddRange(extraAbilityItems.Select(p => new SkillInfo(p.SkillId, true)));
+                }    
+            }
+
+            return abilitySkills.Any();
         }
     }
 }

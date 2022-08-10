@@ -94,7 +94,7 @@ namespace RSBot.Core.Objects.Spawn
         /// <summary>
         /// Pickups the specified item unique identifier.
         /// </summary>
-        /// <param name="itemUniqueId">The item unique identifier.</param>
+        /// <param name="itemUniqueId">The item unique identifier.</param>F
         public void Pickup()
         {
             if (CollisionManager.HasCollisionBetween(Game.Player.Movement.Source, Movement.Source))
@@ -106,15 +106,18 @@ namespace RSBot.Core.Objects.Spawn
             packet.WriteByte(ActionTarget.Entity);
             packet.WriteUInt(UniqueId);
 
-            packet.Lock();
-
             var asyncResult = new AwaitCallback(response =>
             {
-                return response.ReadByte() == 2 && response.ReadByte() == 0
-                        ? AwaitCallbackResult.Received : AwaitCallbackResult.None;
+                var actionState = response.ReadByte();
+                var repeatState = response.ReadByte();
+
+                Log.Debug($"Picked up item response: State={actionState} Repeat={repeatState}");
+
+                return actionState == 2 && repeatState == 0
+                        ? AwaitCallbackResult.Success : AwaitCallbackResult.ConditionFailed;
             }, 0xB074);
             PacketManager.SendPacket(packet, PacketDestination.Server, asyncResult);
-            asyncResult.AwaitResponse();
+            asyncResult.AwaitResponse(500);
         }
     }
 }

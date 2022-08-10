@@ -49,7 +49,7 @@ namespace RSBot.Core
         /// <value>
         /// The selected entity.
         /// </value>
-        public static SpawnedBionic SelectedEntity { get; set; }
+        public static SpawnedBionic? SelectedEntity { get; set; }
 
         /// <summary>
         /// Gets or sets the spawn information.
@@ -162,6 +162,7 @@ namespace RSBot.Core
             PickupManager.Initialize();
             CollisionManager.Initialize();
             ClientlessManager.Initialize();
+            ScriptManager.Initialize();
         }
     }
 }

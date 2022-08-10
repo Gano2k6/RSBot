@@ -2,7 +2,9 @@
 using RSBot.Core.Event;
 using RSBot.Statistics.Stats;
 using RSBot.Statistics.Stats.Calculators;
+using System;
 using System.Drawing;
+using System.Linq;
 using System.Timers;
 using System.Windows.Forms;
 
@@ -11,11 +13,6 @@ namespace RSBot.Statistics.Views
     [System.ComponentModel.ToolboxItem(false)]
     public partial class Main : UserControl
     {
-        /// <summary>
-        /// The refresh timer
-        /// </summary>
-        private System.Timers.Timer _refreshTimer;
-
         /// <summary>
         /// The initial reset
         /// </summary>
@@ -27,12 +24,7 @@ namespace RSBot.Statistics.Views
         public Main()
         {
             InitializeComponent();
-
-            PopulateFilterList();
             SubscribeEvents();
-
-            _refreshTimer = new System.Timers.Timer(1000) { AutoReset = true };
-            _refreshTimer.Elapsed += RefreshTimer_Elapsed;
         }
 
         /// <summary>
@@ -48,9 +40,9 @@ namespace RSBot.Statistics.Views
         /// </summary>
         private void LoadSettings()
         {
-            foreach (CheckBox check in panelLiveFilters.Controls)
+            foreach (var check in panelLiveFilters.Controls.OfType<SDUI.Controls.CheckBox>())
                 check.Checked = PlayerConfig.Get($"RSBot.Statistics.{check.Name}", true);
-            foreach (CheckBox check in panelStaticFilters.Controls)
+            foreach (var check in panelStaticFilters.Controls.OfType<SDUI.Controls.CheckBox>())
                 check.Checked = PlayerConfig.Get($"RSBot.Statistics.{check.Name}", true);
         }
 
@@ -62,9 +54,9 @@ namespace RSBot.Statistics.Views
             if (_initialReset)
                 return;
 
-            foreach (CheckBox check in panelLiveFilters.Controls)
+            foreach (SDUI.Controls.CheckBox check in panelLiveFilters.Controls)
                 PlayerConfig.Set($"RSBot.Statistics.{check.Name}", check.Checked);
-            foreach (CheckBox check in panelStaticFilters.Controls)
+            foreach (SDUI.Controls.CheckBox check in panelStaticFilters.Controls)
                 PlayerConfig.Set($"RSBot.Statistics.{check.Name}", check.Checked);
         }
 
@@ -73,33 +65,30 @@ namespace RSBot.Statistics.Views
         /// </summary>
         private void PopulateFilterList()
         {
-            var locationX = 8;
-            var locationY1 = 0;
-            var locationY2 = 0;
+            var calculators = CalculatorRegistry.Calculators;
+            calculators.Reverse();
 
-            foreach (var calculator in CalculatorRegistry.Calculators)
+            this.Invoke(new Action(() =>
             {
-                var checkBox = new CheckBox
+                foreach (var calculator in calculators)
                 {
-                    Location = new Point(locationX, calculator.UpdateType == UpdateType.Live ? locationY1 : locationY2),
-                    Width = 300,
-                    Text = calculator.Label,
-                    Name = calculator.Name,
-                };
+                    var checkBox = new SDUI.Controls.CheckBox
+                    {
+                        Dock = DockStyle.Top,
+                        Text = calculator.Label,
+                        Name = calculator.Name,
+                        Size = new Size(75, 25),
+                        AutoSize = false
+                    };
 
-                checkBox.CheckedChanged += Filter_CheckedChanged;
+                    checkBox.CheckedChanged += Filter_CheckedChanged;
 
-                if (calculator.UpdateType == UpdateType.Live)
-                {
-                    panelLiveFilters.Controls.Add(checkBox);
-                    locationY1 += 23;
+                    if (calculator.UpdateType == UpdateType.Live)
+                        panelLiveFilters.Controls.Add(checkBox);
+                    else
+                        panelStaticFilters.Controls.Add(checkBox);
                 }
-                else
-                {
-                    panelStaticFilters.Controls.Add(checkBox);
-                    locationY2 += 23;
-                }
-            }
+            }));
         }
 
         /// <summary>
@@ -131,14 +120,15 @@ namespace RSBot.Statistics.Views
                     case StatisticsGroup.Enemy:
                         lvItem.Group = lvStatistics.Groups["grpEnemy"];
                         break;
+                    case StatisticsGroup.Bot:
+                        lvItem.Group = lvStatistics.Groups["grpBot"];
+                        break;
                 }
 
                 lvStatistics.Items.Add(lvItem);
             }
 
             lvStatistics.EndUpdate();
-
-            UpdateStatistics();
         }
 
         /// <summary>
@@ -161,8 +151,8 @@ namespace RSBot.Statistics.Views
         private bool StatatisticActive(string name)
         {
             return panelLiveFilters.Controls.ContainsKey(name)
-                ? ((CheckBox)panelLiveFilters.Controls[name]).Checked
-                : ((CheckBox)panelStaticFilters.Controls[name]).Checked;
+                ? ((SDUI.Controls.CheckBox)panelLiveFilters.Controls[name]).Checked
+                : ((SDUI.Controls.CheckBox)panelStaticFilters.Controls[name]).Checked;
         }
 
         /// <summary>
@@ -183,17 +173,23 @@ namespace RSBot.Statistics.Views
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="ElapsedEventArgs"/> instance containing the event data.</param>
         /// <exception cref="System.NotImplementedException"></exception>
-        private void RefreshTimer_Elapsed(object sender, ElapsedEventArgs e)
+        private void RefreshTimer_Elapsed(object sender, EventArgs e)
         {
-            UpdateStatistics();
+            try
+            {
+                UpdateStatistics();
+            }
+            catch
+            {
+            }
         }
 
         /// <summary>
         /// Handles the Click event of the btnReset control.
         /// </summary>
         /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="System.EventArgs"/> instance containing the event data.</param>
-        private void btnReset_Click(object sender, System.EventArgs e)
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        private void btnReset_Click(object sender, EventArgs e)
         {
             foreach (var calculator in CalculatorRegistry.Calculators)
                 calculator.Reset();
@@ -205,7 +201,10 @@ namespace RSBot.Statistics.Views
         private void OnLoadCharacter()
         {
             //Don't reset after teleportation or something equal
-            if (!_initialReset) return;
+            if (!_initialReset)
+                return;
+
+            PopulateFilterList();
 
             LoadSettings();
 
@@ -214,8 +213,6 @@ namespace RSBot.Statistics.Views
 
             PopulateStatisticsList();
             _initialReset = false;
-
-            _refreshTimer.Start();
         }
     }
 }

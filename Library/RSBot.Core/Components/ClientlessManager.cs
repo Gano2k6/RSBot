@@ -12,7 +12,6 @@ namespace RSBot.Core.Components
         /// </summary>
         internal static void Initialize()
         {
-            EventManager.SubscribeEvent("OnGatewayServerConntected", RequestServerList);
             EventManager.SubscribeEvent("OnAgentServerDisconnected", OnAgentServerDisconnected);
             EventManager.SubscribeEvent("OnAgentServerConnected", OnAgentServerConnected);
         }
@@ -33,18 +32,12 @@ namespace RSBot.Core.Components
         /// <summary>
         /// Requests the server list.
         /// </summary>
-        private static void RequestServerList()
+        public static void RequestServerList()
         {
-            if (!Kernel.Proxy.IsConnectedToGatewayserver || !Game.Clientless)
+            if (!Kernel.Proxy.IsConnectedToGatewayserver)
                 return;
 
-            var packet = new Packet(0x6101, true);
-            packet.Lock();
-
-            var callback = new AwaitCallback(null, 0xA101);
-
-            PacketManager.SendPacket(packet, PacketDestination.Server, callback);
-            callback.AwaitResponse();
+            PacketManager.SendPacket(new Packet(0x6101, true), PacketDestination.Server);
         }
 
         /// <summary>
@@ -81,10 +74,7 @@ namespace RSBot.Core.Components
             {
                 await Task.Delay(10000);
 
-                var pingPacket = new Packet(0x2002);
-                pingPacket.Lock();
-
-                PacketManager.SendPacket(pingPacket, PacketDestination.Server);
+                PacketManager.SendPacket(new Packet(0x2002), PacketDestination.Server);
             }
         }
     }

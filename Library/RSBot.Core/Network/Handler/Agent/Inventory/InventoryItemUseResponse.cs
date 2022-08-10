@@ -26,12 +26,13 @@ namespace RSBot.Core.Network.Handler.Agent.Inventory
         /// <param name="packet">The packet.</param>
         public void Invoke(Packet packet)
         {
-            if (packet.ReadByte() != 0x01) return;
+            if (packet.ReadByte() != 0x01)
+                return;
 
             var sourceSlot = packet.ReadByte();
             var newAmount = packet.ReadUShort();
 
-            Core.Game.Player.Inventory.UpdateItemAmount(sourceSlot, newAmount);
+            Game.Player.Inventory.UpdateItemAmount(sourceSlot, newAmount);
 
             EventManager.FireEvent("OnUseItem", sourceSlot);
         }

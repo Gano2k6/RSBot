@@ -4,7 +4,7 @@ using System;
 
 namespace RSBot.Core.Objects.Skill
 {
-    public class SkillInfo : ISkillDataInfo
+    public class SkillInfo
     {
         /// <summary>
         /// Gets or sets the identifier.
@@ -35,7 +35,15 @@ namespace RSBot.Core.Objects.Skill
         /// <value>
         ///   <c>true</c> if attack; otherwise, <c>false</c>.
         /// </value>
-        public bool IsAttack => Record.Params[1] == 6386804;
+        public bool IsAttack => Record.Params.Contains(6386804);
+
+        /// <summary>
+        /// Gets a value indicating whether this <see cref="SkillInfo"/> is a DoT.
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if DoT; otherwise, <c>false</c>.
+        /// </value>
+        public bool IsDot => Record.Basic_Code.StartsWith("SKILL_EU_WARLOCK_DOTA");
 
         /// <summary>
         /// Gets a value indicating whether this <see cref="SkillInfo"/> is imbue.
@@ -43,8 +51,8 @@ namespace RSBot.Core.Objects.Skill
         /// <value>
         ///   <c>true</c> if imbue; otherwise, <c>false</c>.
         /// </value>
-        public bool IsImbue => Record.Basic_Activity == 1 && (Record.Action_Overlap == 1 || Record.Action_Overlap == 352321537);
-        
+        public bool IsImbue => Record.Basic_Activity == 1 && IsAttack;
+
         /// <summary>
         /// The skill buff duration
         /// </summary>
@@ -54,11 +62,11 @@ namespace RSBot.Core.Objects.Skill
         /// Skill cool down environment tick
         /// </summary>
         private int _cooldownTick;
-        
+
         /// <summary>
         /// Skill can not be casted environment tick
         /// </summary>
-        private int _canNotBeCastedTick;
+        private int _lastCastTick;
 
         /// <summary>
         /// Gets or sets a value indicating whether this instance has cooldown.
@@ -66,8 +74,8 @@ namespace RSBot.Core.Objects.Skill
         /// <value>
         /// <c>true</c> if this instance has cooldown; otherwise, <c>false</c>.
         /// </value>
-        public bool HasCooldown 
-            => (Environment.TickCount - _cooldownTick) < Record.Action_ReuseDelay;
+        public bool HasCooldown
+            => (Kernel.TickCount - _cooldownTick) < Record.Action_ReuseDelay;
 
         /// <summary>
         /// Gets or sets a value indicating whether this instance can be used.
@@ -75,8 +83,16 @@ namespace RSBot.Core.Objects.Skill
         /// <value>
         /// <c>true</c> if this instance can be used; otherwise, <c>false</c>.
         /// </value>
-        public bool CanNotBeCasted
-            => (Environment.TickCount - _canNotBeCastedTick) < _duration;
+        public bool DoTCanNotBeCasted
+        {
+            get
+            {
+                if (_lastCastTick == 0)
+                    return false;
+
+                return (Kernel.TickCount - _lastCastTick) < _duration;
+            }
+        }
 
         /// <summary>
         /// Gets a value indicating whether this instance can be used.
@@ -84,7 +100,39 @@ namespace RSBot.Core.Objects.Skill
         /// <value>
         /// <c>true</c> if this instance can be used; otherwise, <c>false</c>.
         /// </value>
-        public bool CanBeCasted => !CanNotBeCasted && !HasCooldown && Game.Player.Mana >= Record.Consume_MP;
+        public bool CanBeCasted
+        {
+            get
+            {
+                var hasCooldown = HasCooldown;
+                var notEnoughMana = Game.Player.Mana < Record.Consume_MP;
+
+                if (hasCooldown)
+                    return false;
+
+                if (notEnoughMana)
+                    return false;
+
+                if (IsDot && DoTCanNotBeCasted)
+                    return false;
+
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Skill Token (using for buffs)
+        /// </summary>
+        public uint Token { get; set; }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SkillInfo"/> class.
+        /// </summary>
+        public SkillInfo(uint id, uint token)
+            : this(id, false)
+        {
+            Token = token;
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SkillInfo"/> class.
@@ -94,7 +142,7 @@ namespace RSBot.Core.Objects.Skill
             Id = id;
             Enabled = enabled;
 
-            if (Record == null || IsPassive) 
+            if (Record == null || IsPassive)
                 return;
 
             // skill buff duration param: dura
@@ -118,8 +166,16 @@ namespace RSBot.Core.Objects.Skill
         /// </summary>
         public void Update()
         {
-            _cooldownTick = Environment.TickCount;
-            _canNotBeCastedTick = Environment.TickCount;
+            _cooldownTick = Kernel.TickCount;
+            _lastCastTick = Kernel.TickCount;
+        }
+
+        /// <summary>
+        /// Set cooldown
+        /// </summary>
+        public void SetCoolDown(int milliseconds)
+        {
+            _cooldownTick = Kernel.TickCount - milliseconds;
         }
 
         /// <summary>
@@ -128,7 +184,7 @@ namespace RSBot.Core.Objects.Skill
         public void Reset()
         {
             //_cooldownTick = 0;
-            _canNotBeCastedTick = 0;
+            _lastCastTick = 0;
         }
 
         /// <summary>

@@ -1,4 +1,5 @@
-﻿using RSBot.Core.Network;
+﻿using RSBot.Core;
+using RSBot.Core.Network;
 
 namespace RSBot.General.PacketHandler
 {
@@ -31,11 +32,15 @@ namespace RSBot.General.PacketHandler
             packet.ReadString();//username
             packet.ReadString();//password
 
-            if (packet.Opcode == 0x610A)
+            if (packet.Opcode == 0x610A && 
+                Game.ClientType == GameClientType.Turkey)
                 packet.ReadByteArray(6);
 
             var shardId = packet.ReadUShort();
-            
+
+            if (Game.ClientType >= GameClientType.Global)
+                packet.ReadByte(); // channel
+
             Components.Serverlist.SetJoining(shardId);
         }
     }

@@ -24,7 +24,9 @@
         /// <param name="packet">The packet.</param>
         public void Invoke(Packet packet)
         {
-            Core.Game.ChunkedPacket = new Packet(0);
+            Game.ChunkedPacket = new Packet(0);
+            Game.Player.Storage = Game.Player.Storage ?? new Objects.Inventory.Storage();
+            Game.Player.Storage.Gold = packet.ReadULong();
         }
     }
 }

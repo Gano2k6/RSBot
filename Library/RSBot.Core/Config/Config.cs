@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -10,13 +11,17 @@ namespace RSBot.Core
         /// <summary>
         /// The object that stores the configuration
         /// </summary>
-        private Dictionary<string, string> _config;
+        private ConcurrentDictionary<string, string> _config;
 
         /// <summary>
         /// Gets the path.
         /// </summary>
         private string _path;
 
+        /// <summary>
+        /// gets is loaded
+        /// </summary>
+        private bool _isLoaded => _config != null;
 
         /// <summary>
         /// Loads the specified file.
@@ -24,20 +29,21 @@ namespace RSBot.Core
         /// <param name="file">The file.</param>
         public Config(string file)
         {
-            _path = $"{Environment.CurrentDirectory}\\{file}.rs";
+            _path = file;
 
             CheckPath();
 
-            _config = new Dictionary<string, string>();
+            _config = new ConcurrentDictionary<string, string>();
             foreach (var line in File.ReadAllLines(_path))
             {
-                if (string.IsNullOrWhiteSpace(line) || string.IsNullOrEmpty(line)) continue;
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
 
                 var key = line.Split('{')[0];
                 var value = line.Split('{')[1].Split('}')[0];
 
                 if (!_config.ContainsKey(key))
-                    _config.Add(key, value);
+                    _config.TryAdd(key, value);
             }
         }
 
@@ -48,10 +54,10 @@ namespace RSBot.Core
         /// <returns></returns>
         public bool Exists(string key)
         {
-            if (_config == null)
+            if (!_isLoaded)
                 return false;
 
-            return _config.ContainsKey(key) && _config[key] != null && _config[key] != string.Empty;
+            return _config.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value);
         }
 
         /// <summary>
@@ -61,7 +67,7 @@ namespace RSBot.Core
         /// <param name="defaultValue">The default value.</param>
         public T Get<T>(string key, T defaultValue = default(T))
         {
-            if (_config == null) 
+            if (!_isLoaded)
                 return (T)Convert.ChangeType(false, typeof(T));
 
             if (!_config.ContainsKey(key))
@@ -75,16 +81,17 @@ namespace RSBot.Core
         /// </summary>
         /// <param name="key">The key.</param>
         /// <param name="defaultValue">The default value.</param>
-        public TEnum GetEnum<TEnum>(string key, TEnum defaultValue) 
+        public TEnum GetEnum<TEnum>(string key, TEnum defaultValue)
             where TEnum : struct
         {
-            if (_config == null)
+            if (!_isLoaded)
                 return default(TEnum);
 
-            if (!_config.ContainsKey(key))
+            if (!_config.TryGetValue(key, out var value))
+            {
                 Set(key, defaultValue);
-
-            var value = _config[key];
+                value = defaultValue.ToString();
+            }
 
             TEnum result;
             if (!Enum.TryParse(value, out result))
@@ -100,15 +107,13 @@ namespace RSBot.Core
         /// <param name="value">The value.</param>
         public void Set<T>(string key, T value)
         {
-            _config = _config ?? new Dictionary<string, string>();
-
-            string setValue = value == null ? string.Empty : value.ToString();
-            if (!_config.ContainsKey(key))
-                _config.Add(key, setValue);
-            else
-                _config[key] = setValue;
+            var setValue = value == null ? string.Empty : value.ToString();
+            _config.AddOrUpdate(key, setValue, (k, v) => setValue);
         }
 
+        /// <summary>
+        /// Check directories
+        /// </summary>
         private void CheckPath()
         {
             var directory = Path.GetDirectoryName(_path);
@@ -125,7 +130,8 @@ namespace RSBot.Core
         /// <param name="file">The file.</param>
         public void Save()
         {
-            if (_config == null || string.IsNullOrWhiteSpace(_path)) return;
+            if (!_isLoaded || string.IsNullOrWhiteSpace(_path))
+                return;
 
             CheckPath();
 
@@ -149,7 +155,8 @@ namespace RSBot.Core
         /// <param name="delimiter">The delimiter.</param>
         public void SetArray<T>(string key, IEnumerable<T> values, string delimiter = ",")
         {
-            if (values == null) return;
+            if (values == null)
+                return;
 
             Set(key, string.Join(delimiter, values));
         }
@@ -162,11 +169,32 @@ namespace RSBot.Core
         /// <returns></returns>
         public T[] GetArray<T>(string key, char delimiter = ',')
         {
+            if (!_isLoaded)
+                return new T[] { };
+
             var data = Get<string>(key).Split(new[] { delimiter }, StringSplitOptions.RemoveEmptyEntries);
             if (data.Length == 0)
                 return new T[] { };
 
             return data?.Select(p => (T)Convert.ChangeType(p, typeof(T))).ToArray();
+        }
+
+        /// <summary>
+        /// Get array the specified key.
+        /// </summary>
+        /// <param name="key">The key.</param>
+        /// <param name="defaultValue">The default value.</param>
+        public TEnum[] GetEnums<TEnum>(string key, char delimiter = ',')
+            where TEnum : struct
+        {
+            if (!_isLoaded)
+                return new TEnum[] { };
+
+            var data = Get<string>(key).Split(new[] { delimiter }, StringSplitOptions.RemoveEmptyEntries);
+            if (data.Length == 0)
+                return new TEnum[] { };
+
+            return data?.Select(p => Enum.Parse<TEnum>(p)).ToArray();
         }
     }
 }

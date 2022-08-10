@@ -7,6 +7,7 @@ namespace RSBot.Statistics.Stats.Calculators.Static
 {
     internal class Loot : IStatisticCalculator
     {
+        /// <inheritdoc />
         private int _currentValue;
 
         /// <inheritdoc />
@@ -25,7 +26,7 @@ namespace RSBot.Statistics.Stats.Calculators.Static
         public UpdateType UpdateType => UpdateType.Static;
 
         /// <inheritdoc />
-        public double GetValue()
+        public object GetValue()
         {
             return _currentValue;
         }

@@ -39,6 +39,14 @@ namespace RSBot.Core.Components
         public static bool PickupRareItems => PlayerConfig.Get<bool>("RSBot.Items.Pickup.Rare", true);
 
         /// <summary>
+        /// Gets or sets a value indicating whether [pickup rare items].
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [pickup rare items]; otherwise, <c>false</c>.
+        /// </value>
+        public static bool PickupBlueItems => PlayerConfig.Get<bool>("RSBot.Items.Pickup.Blue", true);
+
+        /// <summary>
         /// Gets or sets a value indicating whether [use ability pet].
         /// </summary>
         /// <value>
@@ -52,7 +60,7 @@ namespace RSBot.Core.Components
         /// <value>
         ///   <c>true</c> if [use ability pet]; otherwise, <c>false</c>.
         /// </value>
-        public static bool JustPickMyItems => PlayerConfig.Get<bool>("RSBot.Items.Pickup.JustPickMyItems", true);
+        public static bool JustPickMyItems => PlayerConfig.Get<bool>("RSBot.Items.Pickup.JustPickMyItems", false);
 
         /// <summary>
         /// Initializes this instance.
@@ -82,53 +90,62 @@ namespace RSBot.Core.Components
 
                 bool condition(SpawnedItem e)
                 {
-                    var tolarance = 15;
-                    var isInside = e.Movement.Source.DistanceTo(centerPosition) <= radius + tolarance;
-                    var selfish = JustPickMyItems && e.OwnerJID == playerJid;
+                    if (JustPickMyItems && (e.OwnerJID != playerJid && e.OwnerJID != 0))
+                        return false;
 
-                    return isInside && (selfish || !JustPickMyItems);
+                    //Don't pickup items that still belong to another player
+                    if (!JustPickMyItems && e.HasOwner)
+                        return false;
+
+                    const int tolerance = 15;
+                    var isInside = e.Movement.Source.DistanceTo(centerPosition) <= radius + tolerance;
+                    if (!isInside)
+                        return false;
+
+                    if (PickupGold && e.Record.IsGold)
+                        return true;
+
+                    if (PickupFilter.Invoke(e.Record))
+                        return true;
+
+                    if (PickupRareItems && (byte)e.Rarity >= 2)
+                        return true;
+
+                    if (PickupBlueItems && (byte)e.Rarity >= 1)
+                        return true;
+
+                    return false;
                 }
 
-                if (!SpawnManager.TryGetEntities<SpawnedItem>(out var entites, p => condition(p)))
+                if (!SpawnManager.TryGetEntities<SpawnedItem>(out var entities, condition))
                 {
                     Stop();
                     return;
                 }
 
-                foreach (var item in entites.OrderBy(item => item.Movement.Source.DistanceTo(centerPosition)).Take(5))
+                if (UseAbilityPet && Game.Player.HasActiveAbilityPet)
                 {
-                    if (!Running)
-                        return;
-
-                    if (PickupGold && item.Record.IsGold)
+                    foreach (var item in entities.OrderBy(item => item.Movement.Source.DistanceTo(centerPosition))/*.Take(5)*/)
                     {
-                        if (UseAbilityPet && Game.Player.HasActiveAbilityPet)
-                            Game.Player.AbilityPet.Pickup(item.UniqueId);
-                        else
-                            item.Pickup();
+                        if (!Running)
+                            return;
 
-                        continue;
-                    }
-
-                    //Pickup regular items
-                    if (PickupFilter.Invoke(item.Record))
-                    {
-                        if (UseAbilityPet && Game.Player.HasActiveAbilityPet && !Game.Player.AbilityPet.Full)
-                            Game.Player.AbilityPet.Pickup(item.UniqueId);
-                        else
-                            item.Pickup();
-
-                        continue;
-                    }
-
-                    if (PickupRareItems && (byte)item.Rarity >= 2)
-                    {
-                        if (UseAbilityPet && Game.Player.HasActiveAbilityPet && !Game.Player.AbilityPet.Full)
-                            Game.Player.AbilityPet.Pickup(item.UniqueId);
-                        else
-                            item.Pickup();
+                        Game.Player.AbilityPet.Pickup(item.UniqueId);
                     }
                 }
+                else
+                {
+                    var itemsToPickup = entities.OrderBy(item => item.Movement.Source.DistanceTo(centerPosition));
+
+                    foreach (var item in itemsToPickup) {
+                        //Make sure the player is at the item's location
+                        Game.Player.MoveTo(item.Movement.Source);
+
+                        item.Pickup();
+                    }
+                }
+
+                
             }
             catch (System.Exception e)
             {
@@ -136,7 +153,7 @@ namespace RSBot.Core.Components
             }
             finally
             {
-                Running = false;
+                Stop();
             }
         }
 

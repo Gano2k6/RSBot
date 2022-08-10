@@ -38,7 +38,7 @@ namespace RSBot.Core
             Botbase = botBase;
             Botbase.Initialize();
 
-            EventManager.FireEvent("OnSetBotbase");
+            EventManager.FireEvent("OnSetBotbase", botBase);
         }
 
         /// <summary>
@@ -53,9 +53,9 @@ namespace RSBot.Core
 
             Task.Factory.StartNew(async (e) => 
             {
-                EventManager.FireEvent("OnStartBot");
                 Running = true;
 
+                EventManager.FireEvent("OnStartBot");
                 Botbase.Start();
 
                 while (!TokenSource.IsCancellationRequested)

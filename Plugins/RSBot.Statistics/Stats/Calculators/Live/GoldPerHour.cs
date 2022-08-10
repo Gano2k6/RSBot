@@ -19,7 +19,7 @@ namespace RSBot.Statistics.Stats.Calculators.Live
         /// <summary>
         /// The current tick index
         /// </summary>
-        private int _currentTickIndex;
+        private int _currentTickIndex = -1;
 
         /// <inheritdoc />
         public string Name => "GoldPerHour";
@@ -37,15 +37,15 @@ namespace RSBot.Statistics.Stats.Calculators.Live
         public UpdateType UpdateType => UpdateType.Live;
 
         /// <inheritdoc />
-        public double GetValue()
+        public object GetValue()
         {
             if (!Game.Ready)
                 return 0;
 
-            _values[_currentTickIndex] = Convert.ToInt64(Game.Player.Gold) - _lastTickValue;
             if (++_currentTickIndex >= _values.Length)
                 _currentTickIndex = 0;
 
+            _values[_currentTickIndex] = Convert.ToInt64(Game.Player.Gold) - _lastTickValue;
             _lastTickValue = Convert.ToInt64(Game.Player.Gold);
 
             return _values.Sum(val => val) / _values.Length * 3600;
